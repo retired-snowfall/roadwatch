@@ -71,8 +71,8 @@ def detect_u_turns(ctx: Context, cfg: EventCfg) -> list[Candidate]:
             mid = tr.foot[(s + e) // 2]
             if ctx.scene.zones.get("u_turn_allowed") and ctx.scene.in_zones("u_turn_allowed", mid)[0]:
                 continue
-            if not ctx.scene.on_road(mid)[0]:
-                continue
+            if not ctx.scene.on_road(tr.foot[[s, e]]).any():
+                continue  # manoeuvre in a car park or yard, not on the carriageway
             out.append(Candidate(float(tr.t[s]), float(tr.t[e]), "illegal_u_turn",
                                  float(np.clip(abs(turn) / 180, 0, 1)), (tr.tid,), {"turn": turn}))
     return out

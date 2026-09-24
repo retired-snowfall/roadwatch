@@ -115,11 +115,12 @@ class SceneModel:
             if tr.group not in ("vehicle", "two_wheeler"):
                 continue
             moving = ok & (tr.speed > kin.moving_speed)
-            gy, gx = self.cells(tr.foot[moving])
+            pts, vels = self._densify(tr, moving)
+            gy, gx = self.cells(pts)
             flat = gy * self.cfg.grid_w + gx
             for c in np.unique(flat):
                 sel = flat == c
-                v = tr.vel[moving][sel].mean(axis=0)
+                v = vels[sel].mean(axis=0)
                 cy, cx = divmod(int(c), self.cfg.grid_w)
                 if tr.group == "vehicle":
                     self.veh_count[cy, cx] += 1
@@ -141,6 +142,24 @@ class SceneModel:
         if background is not None:
             self.thumb = thumbnail(background)
         self._derived = None
+
+    def _densify(self, tr: Track, mask: np.ndarray, max_gap: float = 0.6) -> tuple[np.ndarray, np.ndarray]:
+        """Foot points (and velocities) along the path, at most half a cell apart.
+
+        A car near the camera moves several cells between analysed frames; voting only at
+        the samples would leave holes in the carriageway and direction maps.
+        """
+        step = self.cell_px() / 2
+        pts, vels = [tr.foot[mask]], [tr.vel[mask]]
+        idx = np.where(mask[:-1] & mask[1:] & (np.diff(tr.t) <= max_gap))[0]
+        for i in idx:
+            a, b = tr.foot[i], tr.foot[i + 1]
+            n = int(np.linalg.norm(b - a) // step)
+            if n >= 1:
+                f = (np.arange(1, n + 1) / (n + 1))[:, None]
+                pts.append(a + f * (b - a))
+                vels.append(np.repeat(((tr.vel[i] + tr.vel[i + 1]) / 2)[None], n, axis=0))
+        return np.concatenate(pts), np.concatenate(vels)
 
     def _queue_heads(self, tr: Track, frame_feet: dict, kin: KinematicsCfg) -> list:
         """Front points of this vehicle where it waited >= 3 s with nobody right ahead."""

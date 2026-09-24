@@ -47,7 +47,7 @@ class TrackerCfg:
     new_track_thresh: float = 0.50
     match_iou: float = 0.20           # first-stage minimum IoU
     low_match_iou: float = 0.45       # second-stage (low-score boxes) minimum IoU
-    center_gate: float = 0.9          # fallback: centre distance / size
+    center_gate: float = 1.6          # fallback: centre distance / size (new tracks have no velocity yet)
     max_lost: float = 2.5             # s a moving track survives without detections
     max_lost_static: float = 12.0     # s a stationary track survives (occlusion by passing traffic)
     min_hits: int = 3
@@ -84,8 +84,8 @@ class EventCfg:
     acc_rest_speed: float = 0.25
     acc_max_len: float = 20.0
     # near miss
-    nm_ttc: float = 1.2               # s
-    nm_min_gap: float = 0.45          # closest approach / size
+    nm_ttc: float = 2.0               # s, predicted time to closest approach when evasion starts
+    nm_min_gap: float = 0.45          # predicted closest approach / size (+0.3 tolerance)
     nm_brake: float = 1.6             # sizes/s^2
     nm_swerve_deg: float = 25.0
     # wrong way

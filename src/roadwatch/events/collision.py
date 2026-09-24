@@ -180,7 +180,7 @@ def detect_near_misses(ctx: Context, series: dict, accidents: list[Candidate], c
         if ta.tid in crashed and tb.tid in crashed:
             continue
         conflict = (s["tstar"] > 0) & (s["tstar"] < cfg.nm_ttc) & (s["dstar"] < cfg.nm_min_gap + 0.3) \
-            & (s["dist"] < 4.0)
+            & (s["dist"] < 8.0)
         conflict &= np.r_[False, conflict[:-1]]      # predicted on two consecutive analysed frames
         if not conflict.any():
             continue

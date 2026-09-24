@@ -13,10 +13,16 @@ def detect_jaywalking(ctx: Context, cfg: EventCfg) -> list[Candidate]:
     out = []
     scene = ctx.scene
     for tr in ctx.by_group("person"):
-        on = ~tr.edge & scene.on_road(tr.foot, erode=cfg.jw_road_erode) & ~scene.in_crossing(tr.foot)
+        off_crossing = ~tr.edge & ~scene.in_crossing(tr.foot)
+        on = off_crossing & scene.on_road(tr.foot)
+        # boundaries come from the full carriageway mask, but the person must also get well
+        # inside it (eroded mask) for a while: a curb-side wait does not count
+        deep = off_crossing & scene.on_road(tr.foot, erode=cfg.jw_road_erode)
         for s, e in mask_to_intervals(tr.t, on, gap=1.0, min_len=cfg.jw_min_duration):
             w = tr.window(s, e)
-            out.append(Candidate(s, e, "jaywalking", float(0.5 + 0.5 * on[w].mean()), (tr.tid,)))
+            if tr.t[w][deep[w]].size == 0 or np.ptp(tr.t[w][deep[w]]) < 0.5 * cfg.jw_min_duration:
+                continue
+            out.append(Candidate(s, e, "jaywalking", float(0.5 + 0.5 * deep[w].mean()), (tr.tid,)))
     return out
 
 
