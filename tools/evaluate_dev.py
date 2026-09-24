@@ -62,6 +62,7 @@ def main() -> None:
     ap.add_argument("--set", action="append", default=[], help="section.name=value config override")
     ap.add_argument("--risk", action="store_true", help="also stream Part B (slow)")
     ap.add_argument("--out", help="write the predictions here")
+    ap.add_argument("--report", help="write the official evaluate() report (JSON) here, e.g. web/static/data/dev_scores.json")
     args = ap.parse_args()
     logging.basicConfig(level=logging.WARNING)
     os.environ.setdefault("ROADWATCH_CACHE", str(ROOT / ".cache" / "perception"))
@@ -79,7 +80,12 @@ def main() -> None:
         sys.exit("\n".join(errors))
     if args.out:
         Path(args.out).write_text(json.dumps(pred))
-    evaluate.print_report(evaluate.evaluate(gt, pred, per_video=True))
+    rep = evaluate.evaluate(gt, pred, per_video=True)
+    evaluate.print_report(rep)
+    if args.report:
+        rep["confusion"] = confusion(gt, pred)
+        rep["overrides"] = args.set
+        Path(args.report).write_text(json.dumps(rep, indent=1))
     print("\nbest-overlapping prediction per ground-truth event (rows = truth):")
     for lab, row in sorted(confusion(gt, pred).items()):
         print(f"  {lab:<20} " + ", ".join(f"{k}:{v}" for k, v in sorted(row.items(), key=lambda x: -x[1])))

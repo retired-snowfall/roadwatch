@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sample results</title>
+  <meta name="description" content="Annotated playback, event timelines and risk curves for every sample video.">
+  <link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<main>
+  <h1>Results on the sample videos</h1>
+  <p class="lead">Every sample video the organisers gave us, processed by the submitted pipeline. Toggle the
+    overlays, click an event or a point on the risk curve to jump there, or download our own annotated render.</p>
+  <div class="tabs" role="tablist" id="tabs"></div>
+  <div class="grid grid-4" id="tiles"></div>
+  <div id="viewer" style="margin-top:16px"><div class="empty">Loading…</div></div>
+
+  <h2>Examples of each class</h2>
+  <p class="section-intro">The first detection of every class across the sample videos. Click to play it.</p>
+  <div class="grid grid-3" id="examples"></div>
+
+  <h2>Failure cases</h2>
+  <p class="section-intro">Where the pipeline is wrong on the samples, measured against our own labels
+    (see the <a href="report.html">report</a> for the numbers).</p>
+  <div id="failures"></div>
+</main>
+<script type="module" src="js/results.js"></script>
+</body>
+</html>

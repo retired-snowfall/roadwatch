@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>roadwatch</title>
+  <meta name="description" content="Traffic events from a fixed road camera: fourteen classes of incidents as time segments, plus an alarm before accidents.">
+  <link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<main>
+  <section class="hero">
+    <p class="pill">WIUT Hackathon 2026 · Computer Vision track</p>
+    <h1>Every traffic event on one fixed camera, as a time segment — and an alarm before the crash.</h1>
+    <p class="lead">roadwatch watches a CCTV view of a road, reports collisions, near misses, red-light and wrong-way
+      driving, jaywalking, congestion and nine other event classes with start and end times, and raises a causal risk
+      score seconds before an accident happens. It runs offline on one GPU well inside three times real time.</p>
+    <div class="cta">
+      <a class="btn primary" href="demo.html">Try the live demo</a>
+      <a class="btn" href="results.html">See the sample videos</a>
+      <a class="btn" href="https://github.com/retired-snowfall/some_shi">Repository</a>
+    </div>
+  </section>
+
+  <div class="grid grid-4" id="tiles" style="margin-top:24px"></div>
+
+  <h2>How it works</h2>
+  <div class="grid grid-3">
+    <div class="card"><h3>See</h3><p class="muted">A COCO-pretrained YOLO11 finds people, bicycles, motorcycles, cars, buses,
+      trucks, animals and traffic lights; a ByteTrack-style tracker links them into trajectories.</p></div>
+    <div class="card"><h3>Understand the road</h3><p class="muted">From thousands of trajectories in the sample videos the
+      system learns, without labels, where the carriageway is, which way each lane flows and where queues stop.</p></div>
+    <div class="card"><h3>Decide</h3><p class="muted">One rule per event class reads trajectories against that road model and
+      writes segments that follow the annotation conventions. A separate causal chain turns time-to-collision into risk.</p></div>
+  </div>
+  <p style="margin-top:12px"><a href="approach.html">Full pipeline, models and rules →</a></p>
+
+  <h2>On this site</h2>
+  <div class="grid grid-3">
+    <a class="card" href="demo.html" style="text-decoration:none;color:inherit"><h3>Live demo</h3><p class="muted">Upload a video of up to 3 minutes; get the events, an annotated player and the risk curve.</p></a>
+    <a class="card" href="results.html" style="text-decoration:none;color:inherit"><h3>Results</h3><p class="muted">Every sample video annotated, with timelines, risk curves, class examples and failure cases.</p></a>
+    <a class="card" href="dashboard.html" style="text-decoration:none;color:inherit"><h3>Dashboard</h3><p class="muted">The operator view: events per class, rates per hour and a clickable feed.</p></a>
+    <a class="card" href="eda.html" style="text-decoration:none;color:inherit"><h3>EDA</h3><p class="muted">Format, lighting, traffic over time, motion heatmaps, trajectories and learned lane directions.</p></a>
+    <a class="card" href="report.html" style="text-decoration:none;color:inherit"><h3>Report</h3><p class="muted">Scores on our own labels, what worked, what did not, and what we would do next.</p></a>
+    <a class="card" href="tools.html" style="text-decoration:none;color:inherit"><h3>Tools</h3><p class="muted">The in-browser annotator and scene editor we used to build the dev set and draw the road layout.</p></a>
+  </div>
+
+  <h2>Links</h2>
+  <ul>
+    <li><a href="https://github.com/retired-snowfall/some_shi">Source repository</a> — code, tests, one-command entry point</li>
+    <li><a href="https://github.com/retired-snowfall/some_shi/tree/main/weights">Weights</a> — detector weights and the calibrated scene model</li>
+    <li><a href="data/predictions_samples.json">predictions_samples.json</a> — our output on the sample videos</li>
+    <li><a href="team.html">Team</a></li>
+  </ul>
+</main>
+<script type="module">
+  import { chrome, el, getJSON } from "./js/common.js";
+  chrome();
+  const tile = (label, value, note) => el("div", { class: "card stat" }, el("div", { class: "label" }, label),
+    el("div", { class: "value" }, value), el("div", { class: "note" }, note));
+  const tiles = document.getElementById("tiles");
+  tiles.replaceChildren(tile("Event classes", "14", "all official classes covered"),
+    tile("Time budget", "3×", "video length, Part A + B"), tile("Risk horizon", "5 s", "causal, frame by frame"),
+    tile("Weights", "46 MB", "detector + scene model"));
+  getJSON("data/index.json").then((idx) => {
+    const mins = idx.videos.reduce((a, v) => a + v.duration, 0) / 60;
+    const n = idx.videos.reduce((a, v) => a + v.n_events, 0);
+    const rt = Math.max(...idx.videos.map((v) => v.timings.realtime_factor));
+    tiles.replaceChildren(tile("Sample video analysed", `${mins.toFixed(1)} min`, `${idx.videos.length} clips`),
+      tile("Events found", String(n), "on the sample videos"),
+      tile("Slowest video", `${rt.toFixed(2)}×`, `real time, Part A on ${idx.videos[0].timings.device.toUpperCase()}`),
+      tile("Event classes", "14", "all official classes covered"));
+  }).catch(() => {});
+</script>
+</body>
+</html>

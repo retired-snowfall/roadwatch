@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Technical report</title>
+  <meta name="description" content="What we built, what worked, what did not, and what we would do next.">
+  <link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<main>
+  <h1>Technical report</h1>
+  <p class="lead">One page: what we built, how well it works on our own labels of the sample videos, what worked,
+    what did not, and what we would do next.</p>
+
+  <h2>What we built</h2>
+  <p>A single command (<code>python run_submission.py --videos DIR --out predictions.json</code>) runs two independent
+    chains per video. <strong>Part A</strong> detects road users with a COCO-pretrained YOLO11, tracks them, and applies one
+    rule module per family of event classes to the trajectories, read against a model of the fixed camera (carriageway,
+    lane directions, stop lines, crossings) that was learned without labels from the sample videos.
+    <strong>Part B</strong> runs its own detector-plus-tracker strictly causally and turns time-to-collision, hard braking,
+    wrong-way motion and contact into a calibrated risk score. Details on the <a href="approach.html">approach page</a>.</p>
+
+  <h2>Scores on our dev labels</h2>
+  <p class="section-intro">Computed with the organisers' <code>evaluate.py</code>, unchanged, against our own labels of the
+    sample videos (<code>tools/evaluate_dev.py --report</code>). The samples also served for calibration, so these numbers
+    are optimistic for the hidden test set.</p>
+  <div id="scores"><div class="empty">Dev labels are being written; scores appear here once they are complete.</div></div>
+
+  <h2>What worked</h2>
+  <ul>
+    <li><strong>Learning the road layout from trajectories.</strong> A per-cell lane-direction histogram (one vote per vehicle)
+      gives a clean definition of "against the traffic" without drawing a single lane. Rasterising each trajectory between
+      analysed frames was essential: fast cars otherwise leave holes in the map.</li>
+    <li><strong>Measuring kinematics in object sizes.</strong> Speeds and gaps divided by the object's own size behave the
+      same near and far from the camera, so one threshold works across the frame.</li>
+    <li><strong>A precision-first stance.</strong> The macro F1 averages classes in the test set <em>or</em> in our
+      predictions, so a class we predict wrongly costs as much as a class we miss. Every rule requires sustained evidence.</li>
+    <li><strong>Test-driven rules.</strong> Each rule has a synthetic-trajectory test with the expected start and end; the
+      tests caught a tracker bug (fast new tracks restarted every frame) and the map-hole bug before any real video was used.</li>
+  </ul>
+
+  <h2>What did not work (yet)</h2>
+  <ul>
+    <li><strong>Boundaries at IoU 0.7.</strong> Our start and end times inherit the analysis rate and smoothing (±0.2 s) and,
+      for signal events, the uncertainty of when a phase changes. The 0.7 threshold is where we lose most.</li>
+    <li><strong>Small, far objects.</strong> Boxes a few dozen pixels wide jitter by a large fraction of their size, which reads
+      as violent acceleration; we exclude them from accident and near-miss analysis, so events far from the camera are missed.</li>
+    <li><strong>Signal state without seeing the lights.</strong> When the signal heads are not visible, a red phase is only
+      known while a queue waits at the line; a red-light runner on an empty approach is invisible to us.</li>
+    <li><strong>Fire, smoke and obstacles</strong> rely on colour and background differences and are kept deliberately
+      strict; on the samples they are more likely to miss than to fire.</li>
+  </ul>
+
+  <h2>What we would do next</h2>
+  <ul>
+    <li>Fine-tune a short-clip video classifier (for example on DoTA and CCD crashes) to re-score accident and near-miss
+      candidates, which rules alone rank poorly.</li>
+    <li>Refine boundaries with a second, full-frame-rate pass around each candidate.</li>
+    <li>A homography from the lane markings to metres, so speeds, gaps and time-to-collision are physical.</li>
+    <li>More dev labels: four sample videos give only a handful of events per class.</li>
+  </ul>
+
+  <h2>Runtime</h2>
+  <div id="runtime"><div class="empty">Runtime figures appear once the sample videos are processed.</div></div>
+</main>
+<script type="module">
+  import { CLASSES, chrome, className, el, getJSON } from "./js/common.js";
+  chrome();
+  const $ = (id) => document.getElementById(id);
+  getJSON("data/dev_scores.json").then((rep) => {
+    const a = rep.part_a, b = rep.part_b;
+    const rows = a.classes.map((c) => {
+      const pc = a.per_class[c];
+      return el("tr", {}, el("td", {}, el("span", { class: `swatch fam-${CLASSES[c]?.family}` }), className(c)),
+        ...["0.3", "0.5", "0.7"].map((t) => el("td", { class: "num" }, pc[t].f1.toFixed(2))),
+        el("td", { class: "num" }, pc.f1_mean.toFixed(2)),
+        el("td", { class: "num" }, `${pc["0.5"].tp}/${pc["0.5"].fp}/${pc["0.5"].fn}`));
+    });
+    $("scores").replaceChildren(
+      el("div", { class: "grid grid-4" },
+        el("div", { class: "card stat" }, el("div", { class: "label" }, "Score A (macro F1)"), el("div", { class: "value" }, a.score_a.toFixed(3))),
+        el("div", { class: "card stat" }, el("div", { class: "label" }, "Score B"), el("div", { class: "value" }, b ? b.score_b.toFixed(3) : "–"),
+          el("div", { class: "note" }, b ? `AP ${b.ap.toFixed(2)} · alarm F1 ${b.f1_alarm.toFixed(2)} · mTTA ${b.mtta_sec.toFixed(1)} s` : "no accidents in our labels")),
+        el("div", { class: "card stat" }, el("div", { class: "label" }, "Model score M"), el("div", { class: "value" }, rep.model_score.toFixed(3))),
+        el("div", { class: "card stat" }, el("div", { class: "label" }, "Class-agnostic F1 @0.5"), el("div", { class: "value" }, a.class_agnostic["0.5"].f1.toFixed(2)))),
+      el("div", { class: "card table-wrap", style: "margin-top:16px" }, el("table", {},
+        el("thead", {}, el("tr", {}, el("th", {}, "Class"), el("th", { class: "num" }, "F1@0.3"), el("th", { class: "num" }, "F1@0.5"),
+          el("th", { class: "num" }, "F1@0.7"), el("th", { class: "num" }, "Mean"), el("th", { class: "num" }, "TP/FP/FN @0.5"))),
+        el("tbody", {}, rows))));
+  }).catch(() => {});
+  getJSON("data/index.json").then((idx) => {
+    if (!idx.videos.length) return;
+    $("runtime").replaceChildren(el("div", { class: "card table-wrap" }, el("table", {},
+      el("thead", {}, el("tr", {}, el("th", {}, "Video"), el("th", { class: "num" }, "Length"), el("th", { class: "num" }, "Part A"),
+        el("th", { class: "num" }, "× real time"), el("th", {}, "Device"))),
+      el("tbody", {}, idx.videos.map((v) => el("tr", {}, el("td", {}, v.video), el("td", { class: "num" }, `${v.duration.toFixed(0)} s`),
+        el("td", { class: "num" }, `${v.timings.total_sec} s`), el("td", { class: "num" }, v.timings.realtime_factor.toFixed(2)),
+        el("td", {}, v.timings.device)))))));
+  }).catch(() => {});
+</script>
+</body>
+</html>

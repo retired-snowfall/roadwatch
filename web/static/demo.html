@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Live demo</title>
+  <meta name="description" content="Upload a traffic video and get the detected events, an annotated playback and the accident-risk curve.">
+  <meta name="roadwatch-api" content="">
+  <link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<main>
+  <h1>Live demo</h1>
+  <p class="lead">Upload a road-camera video. The same pipeline that we submit runs on it and returns every
+    detected event as a time segment, an annotated playback and the causal accident-risk curve.</p>
+
+  <div class="grid grid-2">
+    <section class="card" aria-labelledby="up-h">
+      <h3 id="up-h">1 · Choose a video</h3>
+      <label class="dropzone" id="drop" for="file">
+        <strong>Drop an .mp4 here</strong> or click to choose a file
+        <input id="file" type="file" accept="video/mp4,video/quicktime,video/x-msvideo,video/webm,video/x-matroska,.mp4,.mov,.m4v,.avi,.mkv,.webm" hidden>
+      </label>
+      <p class="small muted" id="limits">Accepted: .mp4 (also .mov, .avi, .mkv, .webm) up to 200 MB and 3 minutes.
+        Two minutes is plenty. The file stays on the demo server for 3 hours and is then deleted.</p>
+      <div id="picked" class="small"></div>
+      <button class="btn primary" id="go" disabled>Analyse video</button>
+    </section>
+    <section class="card" aria-labelledby="st-h">
+      <h3 id="st-h">2 · Processing</h3>
+      <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="bar"><div></div></div>
+      <div class="stages" id="stages"></div>
+      <p id="status" class="small muted" aria-live="polite">Waiting for a video.</p>
+      <p class="small muted">The demo server runs on CPU with the nano detector at 5 analysed frames per second, so
+        processing takes roughly one to two times the video length. The submitted solution runs the medium
+        detector on a GPU.</p>
+    </section>
+  </div>
+
+  <h2>3 · Results</h2>
+  <div id="result"><div class="empty">Results appear here: timeline, annotated playback, risk curve and the events table.
+    Want to look first? See the <a href="results.html">results on the sample videos</a>.</div></div>
+</main>
+<script type="module" src="js/demo.js"></script>
+</body>
+</html>

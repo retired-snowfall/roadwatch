@@ -1,0 +1,27 @@
+{
+  "team": "roadwatch",
+  "tagline": "Three people, one fixed camera, fourteen kinds of trouble.",
+  "members": [
+    {
+      "name": "Member 1 (to fill)",
+      "role": "Perception & tracking",
+      "did": ["Detector and tracker integration", "Time budget and GPU profile"],
+      "links": {"GitHub": "", "LinkedIn": "", "Portfolio": ""},
+      "projects": [{"name": "Previous project (to fill)", "url": "", "about": "One line on what it was and why you are proud of it."}]
+    },
+    {
+      "name": "Member 2 (to fill)",
+      "role": "Event rules & evaluation",
+      "did": ["Rules for the 14 classes", "Dev-set labelling and tuning"],
+      "links": {"GitHub": "", "LinkedIn": "", "Portfolio": ""},
+      "projects": [{"name": "Previous project (to fill)", "url": "", "about": "One line on what it was and why you are proud of it."}]
+    },
+    {
+      "name": "Member 3 (to fill)",
+      "role": "Website, EDA & report",
+      "did": ["Website and live demo", "EDA and visualisations"],
+      "links": {"GitHub": "", "LinkedIn": "", "Portfolio": ""},
+      "projects": [{"name": "Previous project (to fill)", "url": "", "about": "One line on what it was and why you are proud of it."}]
+    }
+  ]
+}
