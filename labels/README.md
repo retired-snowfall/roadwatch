@@ -10,7 +10,7 @@
 
 1. Serve the site (`uvicorn web.app:app --port 7860`) and open http://localhost:7860/annotate.html
    (the video never leaves your machine).
-2. Open a sample video, pick a class (keys 1–9, 0, q, w, e, r), press **S** at the start and **E** at the end.
+2. Open a sample video, pick a class (keys 1–9, 0, Q, W, R, T), press **S** at the start and **E** at the end.
    Space plays/pauses, ←/→ step one frame, Shift+←/→ one second.
 3. Follow the start/end conventions in the page's "Labelling conventions" box — they are the organisers'.
    Two simultaneous events of the same class are one segment; an event that runs past the end of the video

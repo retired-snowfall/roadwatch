@@ -61,11 +61,12 @@ def detect_signal_events(ctx: Context, cfg: EventCfg, kin: KinematicsCfg) -> lis
                                      (tr.tid,), {"line": li, "waiting": len(others), "light": light_red}))
             # --- stop_line: stationary with the front past the line, not in the intersection, on red
             past = ok & (al > 0.3 * tr.size) & (al < 2.5 * tr.size) & (tr.speed < kin.stationary_speed)
+            reds_others = red_intervals([w for w in waits if w[2] != tr.tid], light)
             for s, e in runs(past):
                 ts, te = float(tr.t[s]), float(tr.t[e])
-                if te - ts < cfg.sl_min_stop:
-                    continue
-                red = [(a, b) for a, b in reds if a <= ts + 1.0 and b >= ts]
+                if te - ts < cfg.sl_min_stop or not tr.arrived_moving(s):
+                    continue  # too short, or a parked car that happens to stand there
+                red = [(a, b) for a, b in reds_others if a <= ts + 1.0 and b >= ts]
                 if not red and not (light is not None and light.red_at(ts)):
                     continue
                 green = min([b for _, b in red] + [te]) if red else te

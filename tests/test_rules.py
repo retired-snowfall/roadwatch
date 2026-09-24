@@ -89,9 +89,9 @@ def test_queue_stop_is_not_an_accident(scene):
 
 def test_near_miss(scene):
     # the car drives at ~3.5 sizes/s, a pedestrian steps into its lane, the car stops within ~1.2 s
-    car = make_track(1, [(0, 100, 470), (2, 800, 470), (2.4, 925, 470), (2.8, 1010, 470),
-                         (3.2, 1040, 470), (3.6, 1045, 470), (7, 1045, 470), (10, 1800, 470)])
-    walker = make_track(2, [(0, 1250, 330), (2, 1250, 420), (4, 1250, 520), (7, 1250, 750)],
+    car = make_track(1, [(0, 100, 470), (2, 800, 470), (2.4, 925, 470), (2.8, 1060, 470),
+                         (3.2, 1105, 470), (3.6, 1112, 470), (7, 1112, 470), (10, 1800, 470)])
+    walker = make_track(2, [(0, 1230, 330), (2, 1230, 420), (4, 1230, 520), (7, 1230, 750)],
                         group="person", size=(30, 80), cls=0)
     cands = collision.detect(context([car, walker], scene), CFG.events)
     assert "near_miss" in labels(cands), [c.as_json() for c in cands]
@@ -140,3 +140,27 @@ def test_finalize_merges_and_clips():
              Candidate(58.0, 70.0, "congestion"), Candidate(10.0, 10.3, "wrong_way")]
     out = finalize(cands, 60.0, merge_gap=1.0, min_duration=0.8, enabled=CFG.enabled)
     assert out == [[1.0, 6.0, "jaywalking"], [58.0, 60.0, "congestion"]]
+
+
+def test_parked_cars_create_no_stop_lines_or_violations(scene):
+    parked = [make_track(50 + k, [(0, 300 + 250 * k, 430), (120, 300 + 250 * k, 430)]) for k in range(4)]
+    from roadwatch.scene import SceneModel
+    fresh = SceneModel(1920, 1080, CFG.scene)
+    fresh.accumulate(parked + normal_traffic(120), 120.0, CFG.kin)
+    assert fresh.queue_heads == [] and fresh.stop_lines() == []
+    ctx = context(parked + normal_traffic(120), scene, duration=120)
+    assert [c for c in run_all(ctx, CFG) if c.label in ("stop_line", "red_light")] == []
+
+
+def test_signal_queues_are_learned_as_a_stop_line():
+    from roadwatch.scene import SceneModel
+    tracks, tid = [], 1
+    for cycle in range(4):                       # four red phases, a different car waits at x~1180 each time
+        t0 = 60.0 * cycle
+        tracks.append(make_track(tid, [(t0, 200, 470), (t0 + 4, 1150, 470), (t0 + 30, 1150, 470), (t0 + 34, 1870, 470)]))
+        tid += 1
+    fresh = SceneModel(1920, 1080, CFG.scene)
+    fresh.accumulate(tracks, 240.0, CFG.kin)
+    lines = fresh.stop_lines()
+    assert len(lines) == 1 and abs(lines[0]["dir"]) < 15
+    assert 1150 < (lines[0]["a"][0] + lines[0]["b"][0]) / 2 < 1260

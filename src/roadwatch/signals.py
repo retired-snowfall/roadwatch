@@ -123,7 +123,7 @@ def waiting_intervals(tracks: list[Track], line: StopLine, stationary: float) ->
         at_line = (al > -2.0 * tr.size) & (al < 0.5 * tr.size) & (np.abs(ac) < line.half + 0.5 * tr.size) \
             & (tr.speed < stationary) & approaching(tr, line)
         for s, e in runs(at_line):
-            if tr.t[e] - tr.t[s] >= 2.0:
+            if tr.t[e] - tr.t[s] >= 2.0 and tr.arrived_moving(s):   # parked cars are not a queue
                 out.append((float(tr.t[s]), float(tr.t[e]), tr.tid))
     return out
 

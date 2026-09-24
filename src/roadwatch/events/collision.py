@@ -197,6 +197,8 @@ def detect_near_misses(ctx: Context, series: dict, accidents: list[Candidate], c
         min_dist = float(s["dist"][span].min())
         if min_dist < 0.6 and float(s["iomin"][span].max()) > 0.05:
             continue  # they touched: that is an accident candidate, not a near miss
+        if min_dist > (2.0 if kind == "brake" else 1.2):
+            continue  # never got close: ordinary braking or turning, not a near miss
         k_min = int(np.where(span)[0][np.argmin(s["dist"][span])])
         clear = np.where((s["t"] > s["t"][k_min]) & (s["dist"] > max(1.5, min_dist + 0.8)))[0]
         end = float(s["t"][clear[0]]) if len(clear) else min(float(s["t"][span][-1]), onset + 4.0)

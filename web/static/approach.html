@@ -48,7 +48,8 @@
         positions are smoothed with a local linear fit. Speed and acceleration are measured in object sizes per second (perspective-robust).</p></div>
     <div class="stage learned"><span class="tag pill">learned, no labels</span><h4>Scene model</h4>
       <p>From all sample trajectories: carriageway mask, per-cell lane direction, traffic streams, where vehicles wait,
-        queue heads → stop lines, movement statistics. Hand-drawn crosswalks, solid lines and no-turn rules override.</p></div>
+        stop lines (where different vehicles that drove in, waited and drove off again stop first, over several signal cycles),
+        movement statistics. Hand-drawn crosswalks, solid lines and no-turn rules override.</p></div>
     <div class="stage classic"><span class="tag pill">classical</span><h4>Pixel side channels</h4>
       <p>At 1 fps: median background, objects that appear and stay on the road, flickering fire-coloured pixels,
         grey textureless smoke, traffic-light colour.</p></div>

@@ -87,7 +87,7 @@ class EventCfg:
     nm_ttc: float = 2.0               # s, predicted time to closest approach when evasion starts
     nm_min_gap: float = 0.45          # predicted closest approach / size (+0.3 tolerance)
     nm_brake: float = 1.6             # sizes/s^2
-    nm_swerve_deg: float = 25.0
+    nm_swerve_deg: float = 35.0       # heading change within 1 s
     # wrong way
     ww_angle: float = 125.0           # deg against the lane direction
     ww_min_duration: float = 1.5

@@ -162,16 +162,20 @@ class SceneModel:
         return np.concatenate(pts), np.concatenate(vels)
 
     def _queue_heads(self, tr: Track, frame_feet: dict, kin: KinematicsCfg) -> list:
-        """Front points of this vehicle where it waited >= 3 s with nobody right ahead."""
+        """Front points where this vehicle waited 3-180 s with nobody right ahead.
+
+        It must have driven in and must drive off again: parked cars also stand with nobody
+        ahead, but never arrive or leave, and would otherwise invent stop lines.
+        Rows: [x, y, travel dir, size, t, video index, track id] (x, y, size normalised).
+        """
         heads = []
         still = tr.speed < kin.stationary_speed
         for s, e in runs(still):
-            if tr.t[e] - tr.t[s] < 3.0 or s < 2:
+            wait = tr.t[e] - tr.t[s]
+            if not (3.0 <= wait <= 180.0) or not tr.arrived_moving(s) or not tr.departs_moving(e):
                 continue
-            before = np.where(tr.speed[:s] > kin.moving_speed)[0]
-            if len(before) == 0:
-                continue
-            v = tr.vel[before[-3:]].mean(axis=0)
+            before = tr.window(tr.t[s] - 3.0, tr.t[s])
+            v = tr.foot[before][-1] - tr.foot[before][0]
             d = v / (np.linalg.norm(v) + 1e-9)
             m = (s + e) // 2
             foot, size = tr.foot[m], tr.size[m]
@@ -187,7 +191,8 @@ class SceneModel:
             if not blocked:
                 front = foot + d * 0.5 * size
                 heads.append([front[0] / self.width, front[1] / self.height,
-                              float(np.degrees(np.arctan2(d[1], d[0]))), size / self.width])
+                              float(np.degrees(np.arctan2(d[1], d[0]))), size / self.width,
+                              float(tr.t[m]), self.n_videos, tr.tid])
         return heads
 
     def merged_with(self, other: "SceneModel") -> "SceneModel":
@@ -327,7 +332,9 @@ class SceneModel:
     def _learned_stop_lines(self, min_heads: int = 4) -> list[dict]:
         if len(self.queue_heads) < min_heads:
             return []
-        heads = np.array(self.queue_heads, np.float64)
+        heads = np.array([q for q in self.queue_heads if len(q) == 7], np.float64)
+        if len(heads) < min_heads:
+            return []
         pts = heads[:, :2] * [self.width, self.height]
         dirs = heads[:, 2]
         sizes = heads[:, 3] * self.width
@@ -342,7 +349,10 @@ class SceneModel:
             rel = pts - pts[i]
             member = (~used) & (angle_diff(dirs, dirs[i]) < 30) & (np.abs(rel @ u) < 2.0 * sizes[i]) \
                 & (np.abs(rel @ n) < 6.0 * sizes[i])
-            if member.sum() < min_heads:
+            # a stop line is where different vehicles wait in different signal cycles
+            vehicles = {(int(v), int(k)) for v, k in heads[member][:, 5:7]}
+            cycles = {(int(v), int(t // 20.0)) for t, v in heads[member][:, 4:6]}
+            if member.sum() < min_heads or len(vehicles) < 3 or len(cycles) < 3:
                 continue
             used |= member
             along = rel[member] @ u

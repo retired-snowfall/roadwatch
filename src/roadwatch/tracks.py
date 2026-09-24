@@ -103,6 +103,24 @@ class Track:
         w = values[self.window(t0, t1)]
         return float(np.median(w)) if len(w) else default
 
+    def travelled(self, t0: float, t1: float) -> float:
+        """Straight-line displacement between t0 and t1, in object sizes."""
+        w = self.window(t0, t1)
+        if w.stop - w.start < 2:
+            return 0.0
+        f = self.foot[w]
+        return float(np.linalg.norm(f[-1] - f[0]) / np.median(self.size[w]))
+
+    def arrived_moving(self, i: int, window: float = 3.0) -> bool:
+        """Did the object drive in before sample i? Parked vehicles never did."""
+        t = self.t[i]
+        return t - self.start >= 1.0 and self.travelled(t - window, t) >= 1.5
+
+    def departs_moving(self, i: int, window: float = 4.0) -> bool:
+        """Does the object drive off after sample i?"""
+        t = self.t[i]
+        return self.end - t >= 1.0 and self.travelled(t, t + window) >= 1.5
+
     def aspect(self) -> np.ndarray:
         """Height / width of the raw boxes (a fallen pedestrian drops well below 1)."""
         return (self.box[:, 3] - self.box[:, 1]) / np.maximum(self.box[:, 2] - self.box[:, 0], 1.0)
