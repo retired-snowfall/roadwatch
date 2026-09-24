@@ -1,10 +1,9 @@
 # data (large; see README "Getting the sample videos")
-samples/
-data/
+/samples/
+/data/
 *.mp4
 *.avi
 *.mov
-!web/static/**/*.mp4
 # caches and outputs
 .cache/
 outputs/
@@ -14,3 +13,5 @@ __pycache__/
 runs/
 *.egg-info/
 .venv/
+# generated site media (large; built by tools/build_site.py, shipped with the web image)
+web/static/data/**/*.mp4

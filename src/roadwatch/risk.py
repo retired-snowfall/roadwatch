@@ -178,3 +178,27 @@ class CausalRisk:
             self.raw = rc.ema * self.raw + (1 - rc.ema) * fused  # slow release after the hold
         self.score = float(np.clip(self.raw, 0.0, 1.0))
         return self.score
+
+
+def risk_curve(video_path: str, progress=None, cfg: Config = CFG) -> list[list[float]]:
+    """Stream every frame of a video through the estimator, exactly as run_submission.py does."""
+    import cv2
+
+    cap = cv2.VideoCapture(str(video_path))
+    fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
+    n = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    est = CausalRisk(cfg)
+    est.reset({"video_id": str(video_path), "fps": fps, "width": int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+               "height": int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)), "n_frames": n})
+    curve, idx = [], 0
+    while True:
+        ok, frame = cap.read()
+        if not ok:
+            break
+        t = idx / fps
+        curve.append([round(t, 4), round(float(est.step(frame, t)), 4)])
+        idx += 1
+        if progress and idx % 50 == 0:
+            progress("risk", min(1.0, idx / max(n, 1)))
+    cap.release()
+    return curve

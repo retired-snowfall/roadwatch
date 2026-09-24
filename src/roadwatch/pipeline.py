@@ -50,6 +50,7 @@ class Analysis:
     timings: dict = field(default_factory=dict)
     background: np.ndarray | None = None
     used_prior: bool = False
+    appearance: AppearanceMonitor | None = None
 
     def to_json(self, max_track_points: int = 400) -> dict:
         """Compact description for the website: events with evidence, tracks for overlays, scene layers."""
@@ -196,7 +197,7 @@ def analyze(video_path: str, cfg: Config = CFG, prior: SceneModel | None | bool 
              len(events), timings)
     if progress:
         progress("done", 1.0)
-    return Analysis(info, tracks, scene, candidates, events, ctx, timings, background, used_prior)
+    return Analysis(info, tracks, scene, candidates, events, ctx, timings, background, used_prior, per.appearance)
 
 
 def _moving_boxes(tracks: list[Track], times: list[float]) -> dict[int, list[np.ndarray]]:

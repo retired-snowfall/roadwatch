@@ -396,10 +396,17 @@ class SceneModel:
 
     @classmethod
     def load(cls, path: str | Path) -> "SceneModel | None":
+        """Learned statistics from `path`; hand-drawn zones from zones.json next to it override."""
         p = Path(path)
         if not p.exists():
             return None
-        return cls.from_json(json.loads(p.read_text()))
+        scene = cls.from_json(json.loads(p.read_text()))
+        drawn = p.with_name("zones.json")
+        if drawn.exists():
+            for kind, items in json.loads(drawn.read_text()).items():
+                if kind in ZONE_KINDS and items:
+                    scene.zones[kind] = items
+        return scene
 
 
 # ---------------------------------------------------------------------- helpers

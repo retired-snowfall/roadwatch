@@ -124,3 +124,16 @@ def render_video(video_path: str, result: dict, out_path: str | Path, risk: list
     writer.close()
     cap.release()
     return Path(out_path)
+
+
+def transcode_preview(src: str | Path, dst: str | Path, max_width: int = 960) -> Path:
+    """Browser-safe H.264 copy without overlays (the website draws overlays on a canvas)."""
+    import subprocess
+
+    import imageio_ffmpeg
+
+    cmd = [imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-loglevel", "error", "-i", str(src),
+           "-vf", f"scale='min({max_width},iw)':-2", "-c:v", "libx264", "-preset", "veryfast", "-crf", "28",
+           "-pix_fmt", "yuv420p", "-an", "-movflags", "+faststart", str(dst)]
+    subprocess.run(cmd, check=True)
+    return Path(dst)
