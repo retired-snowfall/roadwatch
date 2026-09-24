@@ -10,6 +10,8 @@ last score. Cues computed from the current tracks only:
 * wrong way a vehicle moving against the lane direction learned on the sample videos
 * impact    boxes that touch while one party stops abruptly (the crash itself; those
             frames are ignored by the metric, but it keeps the alarm from flickering)
+* soft      closing proximity of any pair, capped at 0.3: never an alarm, but it ranks
+            approaching road users above empty or parallel traffic (the AP term)
 
 Cues are fused as 1 - prod(1 - c) and smoothed with a fast attack and a slow, held release,
 so a score >= 0.5 means "a collision is probably seconds away".
@@ -70,9 +72,11 @@ class CausalRisk:
         if probe.similar_to(p, min_corr=0.5):
             self.scene = p
 
-    def _conflict(self, tracks: list[STrack]) -> tuple[float, tuple]:
+    def _conflict(self, tracks: list[STrack]) -> tuple[float, tuple, float]:
+        """(conflict cue, pair, soft proximity). The soft term ranks every closing pair, however
+        far from a collision course, so frames before an accident outrank ordinary traffic in AP."""
         horizon = self.cfg.risk.horizon
-        best, pair = 0.0, ()
+        best, pair, soft = 0.0, (), 0.0
         for i, a in enumerate(tracks):
             for b in tracks[i + 1:]:
                 if a.group not in MOTORISED and b.group not in MOTORISED:
@@ -89,6 +93,7 @@ class CausalRisk:
                 if not (0.0 < tstar < horizon):
                     continue
                 dstar = float(np.linalg.norm(rel + rv * tstar) / size)
+                soft = max(soft, float(np.exp(-tstar / 2.5) * np.exp(-dstar / 1.2) * min(1.0, closing / 1.5)))
                 if dstar > 0.9:
                     continue
                 # time term: ~0.5 at 1.5 s, ~0.8 at 0.6 s; distance term favours head-on geometry
@@ -96,7 +101,7 @@ class CausalRisk:
                 c *= min(1.0, closing / 1.5)
                 if c > best:
                     best, pair = c, (a.tid, b.tid)
-        return best, pair
+        return best, pair, soft
 
     def _braking(self, tracks: list[STrack], t: float) -> float:
         best = 0.0
@@ -164,11 +169,13 @@ class CausalRisk:
         for tid in [k for k in self.history if k not in alive]:
             del self.history[tid]
 
-        conflict, pair = self._conflict(live)
+        conflict, pair, soft = self._conflict(live)
         cues = {"conflict": conflict, "braking": self._braking(live, t), "wrong_way": self._wrong_way(live),
                 "impact": self._impact(live, t)}
         fused = 1.0 - float(np.prod([1.0 - c for c in cues.values()]))
-        self.last_cues = {**cues, "pair": pair}
+        # the soft term only orders quiet frames: capped at 0.3, it can never raise an alarm by itself
+        fused = max(fused, 0.3 * soft)
+        self.last_cues = {**cues, "soft": soft, "pair": pair}
         rc = self.cfg.risk
         if fused >= self.raw:
             self.raw = fused                                  # fast attack
