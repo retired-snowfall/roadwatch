@@ -1,0 +1,16 @@
+# data (large; see README "Getting the sample videos")
+samples/
+data/
+*.mp4
+*.avi
+*.mov
+!web/static/**/*.mp4
+# caches and outputs
+.cache/
+outputs/
+__pycache__/
+*.pyc
+.pytest_cache/
+runs/
+*.egg-info/
+.venv/
