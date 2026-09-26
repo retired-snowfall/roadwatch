@@ -109,6 +109,7 @@ class EventCfg:
     # stopped vehicle / congestion
     sv_min_duration: float = 10.0
     sv_signal_zone_duration: float = 150.0  # longer than any red phase
+    sv_bridge_gap: float = 10.0       # s a parked car may be hidden by passing traffic (no-stopping zones)
     cg_min_duration: float = 40.0
     cg_min_vehicles: int = 5
     cg_slow_share: float = 0.8
@@ -116,10 +117,12 @@ class EventCfg:
     # pedestrians
     jw_min_duration: float = 1.2
     jw_road_erode: int = 1            # cells
-    jw_crosswalk_margin: float = 2.0  # person sizes beside a crosswalk still count as on it
+    jw_crosswalk_margin: float = 0.4  # person sizes beside the stripes still count as on the crossing
+    jw_extend: float = 4.0            # s the segment grows either way while the person is still on the road
     fy_min_speed: float = 0.5
     fy_gap: float = 1.5               # pedestrian within this many vehicle sizes (~a lane) of the vehicle
     fy_ped_speed: float = 0.3         # sizes/s: the pedestrian is walking, not waiting
+    fy_crosswalk_margin: float = 2.0  # person sizes around a crosswalk where a walker has claimed it
     # lines and signals
     rl_min_speed: float = 0.8
     rl_min_waiting: int = 2           # other vehicles waiting at the line (when no light is visible)

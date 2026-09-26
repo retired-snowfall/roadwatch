@@ -45,8 +45,42 @@ def _queued_share(ctx: Context, tr: Track, s: float, e: float, kin: KinematicsCf
     return hits / max(len(samples), 1)
 
 
-def detect_stopped(ctx: Context, cfg: EventCfg, kin: KinematicsCfg, congestion: list[Candidate]) -> list[Candidate]:
+def _no_stopping_stays(ctx: Context, cfg: EventCfg, kin: KinematicsCfg) -> list[Candidate]:
+    """Vehicles standing in a drawn no-stopping zone (weights/zones.json), however routine the spot. A parked
+    car keeps its place while passing traffic hides it, and comes back under a new track id: stays at the
+    same spot are joined across such gaps. Boxes cut off by the frame border count: a parked car does not
+    move, so a partial box is still the same car."""
+    if not ctx.scene.zones.get("no_stopping"):
+        return []
+    stays = []
+    for tr in ctx.by_group("vehicle"):
+        still = tr.speed < kin.stationary_speed
+        for s, e in mask_to_intervals(tr.t, still, gap=2.0, min_len=2.0):
+            w = tr.window(s, e)
+            foot = np.median(tr.foot[w], axis=0)
+            if ctx.scene.in_zones("no_stopping", foot)[0]:
+                stays.append((s, e, foot, float(np.median(tr.size[w])), tr.tid))
+    chains: list[list] = []
+    for s, e, foot, size, tid in sorted(stays, key=lambda x: x[0]):
+        for ch in chains:
+            if s <= ch[1] + cfg.sv_bridge_gap and np.linalg.norm(foot - ch[2]) <= 0.5 * ch[3]:
+                ch[1] = max(ch[1], e)
+                ch[4].append(tid)
+                break
+        else:
+            chains.append([s, e, foot, size, [tid]])
     out = []
+    for s, e, _, _, tids in chains:
+        if e - s < cfg.sv_min_duration:
+            continue
+        s = 0.0 if s <= 1.0 else s                            # already there when the video starts
+        e = ctx.duration if e >= ctx.duration - 1.0 else e    # still there when it ends
+        out.append(Candidate(s, e, "stopped_vehicle", 1.0, tuple(tids), {"zone": "no_stopping"}))
+    return out
+
+
+def detect_stopped(ctx: Context, cfg: EventCfg, kin: KinematicsCfg, congestion: list[Candidate]) -> list[Candidate]:
+    out = _no_stopping_stays(ctx, cfg, kin)
     scene = ctx.scene
     for tr in ctx.by_group("vehicle"):
         still = (tr.speed < kin.stationary_speed) & ~tr.edge

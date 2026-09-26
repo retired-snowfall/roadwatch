@@ -79,11 +79,14 @@ def main() -> None:
         scene_dir = out_root / "scene"
         scene_dir.mkdir(exist_ok=True)
         bg_path = WEIGHTS_DIR / "scene_background.jpg"
+        frame_path = WEIGHTS_DIR / "scene_frame.jpg"   # sharp, traffic-free frame of the reference view
         if bg_path.exists():
             bg = cv2.imread(str(bg_path))
             cv2.imwrite(str(scene_dir / "directions.jpg"), cv2.resize(eda.direction_field(bg, prior), (960, int(
                 bg.shape[0] * 960 / bg.shape[1]))), [cv2.IMWRITE_JPEG_QUALITY, 85])
-            shutil.copy(bg_path, scene_dir / "background.jpg")
+            shutil.copy(frame_path if frame_path.exists() else bg_path, scene_dir / "background.jpg")
+        if (WEIGHTS_DIR / "zones.json").exists():
+            shutil.copy(WEIGHTS_DIR / "zones.json", scene_dir / "zones.json")   # the editor starts from these
         index["scene"] = {"videos": prior.n_videos, "seconds": prior.seconds,
                           "stop_lines": len(prior.stop_lines()), "zones": prior.zones}
     preds = ROOT / "predictions_samples.json"

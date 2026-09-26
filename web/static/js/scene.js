@@ -4,12 +4,13 @@ import { chrome, el, fmtTime } from "./common.js";
 chrome();
 
 const STORE = "rw-zones";
-const KINDS = ["crosswalks", "intersection", "u_turn_allowed", "ignore", "solid_lines", "stop_lines", "no_turn"];
-const POLY = new Set(["crosswalks", "intersection", "u_turn_allowed", "ignore"]);
+const KINDS = ["crosswalks", "intersection", "u_turn_allowed", "no_stopping", "ignore", "solid_lines", "stop_lines", "no_turn"];
+const POLY = new Set(["crosswalks", "intersection", "u_turn_allowed", "no_stopping", "ignore"]);
 const META = {
   crosswalks: { label: "crosswalk", title: "Crosswalks", tool: "Crosswalk", token: "--ink", fill: 0.25, lw: 2 },
   intersection: { label: "intersection", title: "Intersection", tool: "Intersection", token: "--axis", fill: 0.25, lw: 2 },
   u_turn_allowed: { label: "u-turn allowed", title: "U-turn allowed", tool: "U-turn allowed", token: "--fam-manoeuvre", fill: 0.22, lw: 2 },
+  no_stopping: { label: "no stopping", title: "No stopping", tool: "No stopping", token: "--fam-state", fill: 0.22, lw: 2 },
   ignore: { label: "ignore", title: "Ignore", tool: "Ignore", token: "--muted", fill: 0.3, lw: 2 },
   solid_lines: { label: "solid line", title: "Solid lines", tool: "Solid line", token: "--fam-pedestrian", lw: 3 },
   stop_lines: { label: "stop line", title: "Stop lines", tool: "Stop line", token: "--critical", lw: 3 },
@@ -161,8 +162,19 @@ function save() {
 function restore() {
   let raw = null;
   try { raw = localStorage.getItem(STORE); } catch { /* storage may be unavailable */ }
-  if (!raw) return;
+  if (!raw) return false;
   try { zones = parseZones(JSON.parse(raw)).z; } catch { /* ignore a corrupt autosave */ }
+  return true;
+}
+
+// First visit: start from the zones the pipeline uses today (weights/zones.json, published with the site).
+async function loadPublishedZones() {
+  try {
+    const r = await fetch("data/scene/zones.json");
+    if (!r.ok) return;
+    zones = parseZones(await r.json()).z;
+    commit();
+  } catch { /* none published: start empty */ }
 }
 
 function commit() {
@@ -663,7 +675,7 @@ function renderLegend() {
     el("span", { class: `ksw ${cls}${line ? " line" : ""}`, "aria-hidden": "true" }), text);
   $("legend").replaceChildren(
     item("k-crosswalks", "crosswalk"), item("k-intersection", "intersection"), item("k-u_turn_allowed", "u-turn allowed"),
-    item("k-ignore", "ignore"), item("k-solid_lines", "solid line", true), item("k-stop_lines", "stop line + travel direction", true),
+    item("k-no_stopping", "no stopping"), item("k-ignore", "ignore"), item("k-solid_lines", "solid line", true), item("k-stop_lines", "stop line + travel direction", true),
     item("k-no_turn_from", "no-turn from"), item("k-no_turn_to", "no-turn to"));
 }
 
@@ -803,13 +815,14 @@ $("del").addEventListener("click", () => { if (sel) removeItem(sel.kind, sel.i);
 
 // ------------------------------------------------------------------ init
 readTokens();
-restore();
+const restored = restore();
 renderLegend();
 setTool("select");
 renderList();
 $("preview").textContent = exportText();
 layout();
 tryDefaultBackground();
+if (!restored) loadPublishedZones();
 
 const retheme = () => { readTokens(); draw(); };
 window.addEventListener("themechange", retheme);

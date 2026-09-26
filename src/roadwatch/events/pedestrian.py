@@ -19,11 +19,14 @@ def detect_jaywalking(ctx: Context, cfg: EventCfg) -> list[Candidate]:
         # boundaries come from the full carriageway mask, but the person must also get well
         # inside it (eroded mask) for a while: a curb-side wait does not count
         deep = off_crossing & scene.on_road(tr.foot, erode=cfg.jw_road_erode)
+        # the event covers the walk onto and off the carriageway, not only the stretch off the stripes
+        road_runs = mask_to_intervals(tr.t, scene.on_road(tr.foot) & ~tr.edge, gap=1.0, min_len=0.0)
         for s, e in mask_to_intervals(tr.t, on, gap=1.0, min_len=cfg.jw_min_duration):
             w = tr.window(s, e)
             if tr.t[w][deep[w]].size == 0 or np.ptp(tr.t[w][deep[w]]) < 0.5 * cfg.jw_min_duration:
                 continue
-            out.append(Candidate(s, e, "jaywalking", float(0.5 + 0.5 * deep[w].mean()), (tr.tid,)))
+            a, b = next(((a, b) for a, b in road_runs if a <= s and e <= b), (s, e))
+            out.append(Candidate(max(a, s - cfg.jw_extend), min(b, e + cfg.jw_extend), "jaywalking", float(0.5 + 0.5 * deep[w].mean()), (tr.tid,)))
     return out
 
 
@@ -46,7 +49,7 @@ def detect_failure_to_yield(ctx: Context, cfg: EventCfg) -> list[Candidate]:
     # (people waiting at the kerb end of a crosswalk have not claimed it yet)
     ped_frames: dict[int, list[tuple[np.ndarray, np.ndarray]]] = defaultdict(list)
     for tr in ctx.by_group("person"):
-        on = (scene.crossing_distance(tr.foot) <= cfg.jw_crosswalk_margin * tr.size) & scene.on_road(tr.foot) \
+        on = (scene.crossing_distance(tr.foot) <= cfg.fy_crosswalk_margin * tr.size) & scene.on_road(tr.foot) \
             & (tr.speed >= cfg.fy_ped_speed)
         for f, p, v in zip(tr.fidx[on], tr.foot[on], tr.vel[on]):
             ped_frames[int(f)].append((p, v))

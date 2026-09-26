@@ -171,6 +171,8 @@ uvicorn web.app:app --port 7860      # website + live demo at http://localhost:7
 
 | Member | Role | Contributions |
 |---|---|---|
-| Member 1 (to fill) | Perception & tracking | detector and tracker integration, time budget |
-| Member 2 (to fill) | Event rules & evaluation | rules for the 14 classes, dev labels, tuning |
-| Member 3 (to fill) | Website, EDA & report | website and live demo, EDA, report |
+| Timur Tolipov | Perception & risk | detector and tracker integration, time budget and GPU profile, Part B risk estimator |
+| Gavhar Muldashova | Event rules & evaluation | rules for the 14 classes, tuning on the dev labels, error analysis |
+| Komiljon Xamidov | Website, EDA & deployment | website and live demo, EDA and visualisations, hosting |
+
+All three labelled the sample videos (`labels/team_labels.txt`).

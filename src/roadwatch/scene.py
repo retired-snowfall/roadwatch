@@ -26,7 +26,7 @@ from .config import KinematicsCfg, SceneCfg
 from .tracks import Track
 
 ZONE_KINDS = ("crosswalks", "stop_lines", "solid_lines", "intersection", "u_turn_allowed",
-              "no_turn", "ignore", "lights")
+              "no_turn", "no_stopping", "ignore", "lights")
 THUMB = (96, 54)
 
 
