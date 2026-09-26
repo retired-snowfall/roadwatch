@@ -7,7 +7,7 @@ from ..config import EventCfg, KinematicsCfg
 from ..scene import runs
 from ..signals import (StopLine, approaching, assign_light, front_points, red_intervals,
                        waiting_intervals)
-from .base import Candidate, Context
+from .base import Candidate, Context, trustworthy
 
 
 def _stop_lines(ctx: Context) -> list[StopLine]:
@@ -103,30 +103,35 @@ def _signed_distance(poly: np.ndarray, pts: np.ndarray) -> tuple[np.ndarray, np.
 
 
 def detect_solid_line_crossings(ctx: Context, cfg: EventCfg) -> list[Candidate]:
+    """A vehicle whose ground point moves from one side of a drawn solid line to the other. In this oblique
+    view a box's bottom corners straddle the neighbouring lane lines even when the car drives straight, so
+    the box centre is used, with a dead band around the line (a share of the box width) against jitter.
+    A vehicle that stops astride the line (caught by the signal mid-manoeuvre) is in violation for as long
+    as it stands there."""
     lines = [ctx.scene.denorm(sl["points"] if isinstance(sl, dict) else sl)
              for sl in ctx.scene.zones.get("solid_lines", [])]
     if not lines:
         return []
     out = []
     for tr in ctx.by_group("vehicle", "two_wheeler"):
-        left = np.c_[tr.box[:, 0], tr.box[:, 3]]
-        right = np.c_[tr.box[:, 2], tr.box[:, 3]]
-        moving = (tr.speed > 0.3) & ~tr.edge
+        width = tr.box[:, 2] - tr.box[:, 0]
+        ok = ~tr.edge
         for li, poly in enumerate(lines):
-            dl, in_l = _signed_distance(poly, left)
-            dr, in_r = _signed_distance(poly, right)
-            valid = moving & in_l & in_r
-            side = np.where(valid, np.where((dl > 0) & (dr > 0), 1, np.where((dl < 0) & (dr < 0), -1, 0)), 99)
-            clean = np.where(np.isin(side, (-1, 1)))[0]
+            d, along = _signed_distance(poly, tr.foot)
+            band = cfg.slc_band * width
+            side = np.where(ok & along & (d > band), 1, np.where(ok & along & (d < -band), -1, 0))
+            clean = np.where(side != 0)[0]
             for k0, k1 in zip(clean[:-1], clean[1:]):
-                if side[k0] == side[k1] or tr.t[k1] - tr.t[k0] > 6.0:
+                if side[k0] == side[k1] or tr.t[k1] - tr.t[k0] > cfg.slc_max_gap:
                     continue
-                # straddling samples in between: the wheel crosses at the first, fully over after the last
-                mid = np.arange(k0 + 1, k1)
-                t_start = float(tr.t[mid[0]]) if len(mid) else float(tr.t[k0])
-                t_end = float(tr.t[k1])
-                out.append(Candidate(t_start, max(t_end, t_start + 0.4), "solid_line_crossing", 0.7,
-                                     (tr.tid,), {"line": li}))
+                if not trustworthy(ctx, tr, k0, k1, cfg):
+                    continue  # jittering far-away boxes and identity switches in queues
+                t0, t1 = float(tr.t[k0]), float(tr.t[k1])
+                mid = (t0 + t1) / 2
+                s, e = min(t0, mid - cfg.slc_min_len / 2), max(t1, mid + cfg.slc_min_len / 2)
+                astride = (tr.speed[k0:k1 + 1] < 0.12).mean() if k1 > k0 else 0.0
+                out.append(Candidate(s, e, "solid_line_crossing", 0.7, (tr.tid,),
+                                     {"line": li, "stopped_astride": float(astride)}))
     return out
 
 

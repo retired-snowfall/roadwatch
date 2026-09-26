@@ -134,7 +134,9 @@ class EventCfg:
     sl_block_min_vehicles: int = 1    # vehicles standing on a crossing at once
     sl_block_gap: float = 10.0        # s between blocking spells that still make one event
     sl_block_min_duration: float = 20.0
-    slc_min_depth: float = 0.25       # share of the vehicle width past the line
+    slc_band: float = 0.15            # dead band either side of a solid line, share of the box width
+    slc_max_gap: float = 60.0         # s from one side to the other (a car may stop astride the line)
+    slc_min_len: float = 2.0          # s: short crossings are reported as at least this long
     # obstacle / fire
     ob_min_duration: float = 5.0
     ob_min_area: float = 0.0006       # share of the image

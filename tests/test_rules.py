@@ -114,7 +114,14 @@ def test_solid_line_crossing(scene):
         tr = make_track(1, [(0, 100, 470), (4, 800, 470), (6, 1100, 630), (9, 1700, 630)])
         cands = lines.detect_solid_line_crossings(context([tr], scene), CFG.events)
         assert labels(cands) == ["solid_line_crossing"]
-        assert 4.0 <= cands[0].start <= 5.5 and 5.0 <= cands[0].end <= 6.5
+        # centred on the crossing (about t = 5 s), at least slc_min_len long
+        assert cands[0].start <= 5.0 <= cands[0].end and 1.9 <= cands[0].end - cands[0].start <= 3.0
+        # caught by the signal astride the line: the violation lasts while it stands there
+        astride = make_track(2, [(0, 100, 470), (4, 800, 470), (5, 950, 545), (35, 950, 545), (37, 1200, 630),
+                                 (40, 1700, 630)])
+        cands = lines.detect_solid_line_crossings(context([astride], scene), CFG.events)
+        assert labels(cands) == ["solid_line_crossing"]
+        assert cands[0].start <= 6.0 and cands[0].end >= 35.0
     finally:
         scene.zones["solid_lines"] = []
 
