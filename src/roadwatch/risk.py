@@ -18,16 +18,19 @@ so a score >= 0.5 means "a collision is probably seconds away".
 """
 from __future__ import annotations
 
+import time
 from collections import deque
 
+import cv2
 import numpy as np
 
+from . import budget
 from .config import CFG, WEIGHTS_DIR, Config
 from .constants import MOTORISED, ROAD_USERS
 from .detector import device_kind, get_detector
 from .scene import SceneModel, angle_diff, thumbnail
 from .tracker import ByteTracker, STrack
-from .video import FrameSampler
+from .video import FrameSampler, work_size
 
 
 def _sigmoid(x: float) -> float:
@@ -58,7 +61,12 @@ class CausalRisk:
         self.scene: SceneModel | None = None
         self.scene_checked = False
         self.last_cues: dict = {}
-        self.min_px = self.cfg.events.min_size * float(meta.get("width") or 1920)
+        self.work: tuple[int, int] | None = None   # set from the first analysed frame
+        n, fps = int(meta.get("n_frames") or 0), self.fps
+        self.duration = n / fps if n > 0 else 0.0
+        self.deadline = budget.deadline(meta.get("video_id", ""), self.duration) if self.duration else None
+        self._guard: tuple[float, float] | None = None   # (wall clock, video time) at the last check
+        self.min_px = 0.0
 
     # ------------------------------------------------------------------ cues
     def _check_scene(self, frame: np.ndarray) -> None:
@@ -151,12 +159,31 @@ class CausalRisk:
                             best = max(best, 0.6)
         return best
 
+    def _time_guard(self, t: float) -> None:
+        """Lower the detection rate if, at the recent pace (harness decoding included), Part B would
+        finish too close to the harness deadline for Part A + Part B."""
+        rc = self.cfg.risk
+        if self.deadline is None or self._guard is None or t - self._guard[1] < rc.guard_every:
+            return
+        wall0, t0 = self._guard
+        now = time.perf_counter()
+        self._guard = (now, t)
+        pace = (now - wall0) / (t - t0)                     # wall seconds per video second, recently
+        if now + pace * max(0.0, self.duration - t) > self.deadline and self.sampler.rate > rc.min_fps:
+            self.sampler.set_rate(max(rc.min_fps, 0.7 * self.sampler.rate))
+
     # ------------------------------------------------------------------ main
     def step(self, frame: np.ndarray, t: float) -> float:
         take = self.sampler.take(self.idx)
         self.idx += 1
         if not take:
             return self.score
+        self._time_guard(t)
+        if self.work is None:
+            self.work = work_size(frame.shape[1], frame.shape[0])
+            self.min_px = self.cfg.events.min_size * self.work[0]
+        if (frame.shape[1], frame.shape[0]) != self.work:  # same working pixels as Part A and the scene prior
+            frame = cv2.resize(frame, self.work, interpolation=cv2.INTER_AREA)
         if not self.scene_checked:
             self._check_scene(frame)
         dets = self.detector([frame], imgsz=self.imgsz)[0]
@@ -184,13 +211,13 @@ class CausalRisk:
         elif t > self.hold_until:
             self.raw = rc.ema * self.raw + (1 - rc.ema) * fused  # slow release after the hold
         self.score = float(np.clip(self.raw, 0.0, 1.0))
+        if self._guard is None:  # start the pace clock after the first frame (detector warm-up excluded)
+            self._guard = (time.perf_counter(), t)
         return self.score
 
 
 def risk_curve(video_path: str, progress=None, cfg: Config = CFG) -> list[list[float]]:
     """Stream every frame of a video through the estimator, exactly as run_submission.py does."""
-    import cv2
-
     cap = cv2.VideoCapture(str(video_path))
     fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
     n = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))

@@ -16,6 +16,7 @@
   .card h2 { font-size: 1.2rem; margin: 0 0 0.6em; }
   .card h3 { font-size: 1rem; margin: 0 0 0.5em; }
   .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .samples { margin-top: 10px; flex-direction: column; align-items: flex-start; gap: 6px; }
   .btn.sm { padding: 5px 11px; font-size: 0.88rem; }
   .btn kbd { font-weight: 400; }
   input[type="number"], input[type="text"] {
@@ -115,6 +116,10 @@
         <p><strong>Drop .mp4 files here</strong> or click to choose. You can open several; labels are kept per file name.</p>
         <input id="file" type="file" accept="video/*,.mp4" multiple hidden>
       </div>
+      <div id="samples" class="row samples" hidden>
+        <span class="small muted">Or open a sample video hosted on this site (a browser-friendly copy, with our pipeline's events loaded as predictions):</span>
+        <div id="sampleBtns" class="row"></div>
+      </div>
       <div id="picker" class="tabs vid-tabs" role="tablist" aria-label="Videos opened this session" hidden></div>
       <p id="stored" class="small muted" hidden></p>
       <div id="noVideo" class="empty" style="margin-top:12px">Open a video to start labelling.</div>
@@ -188,6 +193,7 @@
         <h3>Compare with predictions</h3>
         <div class="row">
           <button id="loadPred" class="btn sm" type="button">Load predictions</button>
+          <button id="adoptPred" class="btn sm" type="button" hidden>Use as starting labels</button>
           <button id="clearPred" class="btn sm" type="button" hidden>Hide predictions</button>
           <input id="predFile" type="file" accept=".json,application/json" hidden>
         </div>

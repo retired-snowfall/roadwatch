@@ -1,4 +1,7 @@
-"""Part A pipeline: video -> detections -> tracks -> scene -> rule candidates -> events."""
+"""Part A pipeline: video -> detections -> tracks -> scene -> rule candidates -> events.
+
+Everything after decoding is in working pixels (at most 1920 wide, see video.work_size).
+"""
 from __future__ import annotations
 
 import hashlib
@@ -13,6 +16,7 @@ from typing import Callable
 import cv2
 import numpy as np
 
+from . import budget
 from .appearance import AppearanceMonitor
 from .config import CFG, WEIGHTS_DIR, Config
 from .constants import COCO_GROUPS, TRAFFIC_LIGHT
@@ -61,7 +65,8 @@ class Analysis:
             stride = max(1, len(tr.t) // max_track_points)
             tracks.append(tr.to_json(stride))
         return {
-            "video": self.info.name, "fps": self.info.fps, "width": self.info.width, "height": self.info.height,
+            "video": self.info.name, "fps": self.info.fps, "width": self.info.work_width,
+            "height": self.info.work_height, "source_width": self.info.width, "source_height": self.info.height,
             "duration": round(self.info.duration, 3), "n_frames": self.info.n_frames,
             "events": self.events, "candidates": [c.as_json() for c in self.candidates],
             "tracks": tracks, "timings": self.timings, "used_prior": self.used_prior,
@@ -81,7 +86,7 @@ def _cache_file(info: VideoInfo, kind: str) -> Path | None:
     if not root:
         return None
     st = Path(info.path).stat()
-    key = hashlib.sha1(f"{Path(info.path).resolve()}|{st.st_size}|{st.st_mtime_ns}|{kind}|v1".encode()).hexdigest()
+    key = hashlib.sha1(f"{Path(info.path).resolve()}|{st.st_size}|{st.st_mtime_ns}|{kind}|v2".encode()).hexdigest()
     return Path(root) / f"{Path(info.path).stem}-{key[:12]}.pkl"
 
 
@@ -96,7 +101,7 @@ def perceive(info: VideoInfo, cfg: Config = CFG, progress: Progress | None = Non
     pc = cfg.perception
     sampler = FrameSampler(info.fps, pc.analysis_fps_gpu if kind == "gpu" else pc.analysis_fps_cpu)
     tracker = ByteTracker(cfg.tracker)
-    appearance = AppearanceMonitor(info.width, info.height)
+    appearance = AppearanceMonitor(info.work_width, info.work_height)
     records: list = []
     light_obs: list = []
     t0 = time.perf_counter()
@@ -129,7 +134,7 @@ def perceive(info: VideoInfo, cfg: Config = CFG, progress: Progress | None = Non
             progress("detect", min(1.0, processed / max(info.duration, 1e-6)))
         batch.clear()
 
-    for idx, t, frame in iter_frames(info.path, sampler):
+    for idx, t, frame in iter_frames(info.path, sampler, info.work):
         batch.append((idx, t, frame))
         if len(batch) >= det.profile.batch:
             flush()
@@ -149,7 +154,7 @@ def load_prior() -> SceneModel | None:
 
 def build_scene(info: VideoInfo, tracks: list[Track], background: np.ndarray | None, cfg: Config,
                 prior: SceneModel | None) -> tuple[SceneModel, bool]:
-    current = SceneModel(info.width, info.height, cfg.scene)
+    current = SceneModel(info.work_width, info.work_height, cfg.scene)
     current.accumulate(tracks, info.duration, cfg.kin, background)
     if prior is not None and current.similar_to(prior):
         return prior.merged_with(current), True
@@ -167,17 +172,18 @@ def analyze(video_path: str, cfg: Config = CFG, prior: SceneModel | None | bool 
 
     if progress:
         progress("tracks", 0.0)
-    tracks = build_tracks(per.records, cfg.kin, info.width, info.height)
+    tracks = build_tracks(per.records, cfg.kin, info.work_width, info.work_height)
     background = per.appearance.background()
     if background is not None:
-        background = cv2.resize(background, (info.width, info.height))
+        background = cv2.resize(background, info.work)
     if prior is True:
         prior = load_prior()
     scene, used_prior = build_scene(info, tracks, background, cfg, prior or None)
 
     n_idx = max([int(r[0]) for r in per.records], default=0) + 1
     frame_times = np.arange(max(n_idx, info.n_frames) + 1) / info.fps
-    ctx = Context(tracks, scene, info.duration, info.fps, info.width, info.height, FrameIndex(tracks), frame_times)
+    ctx = Context(tracks, scene, info.duration, info.fps, info.work_width, info.work_height, FrameIndex(tracks),
+                  frame_times)
     road_work = cv2.resize(scene.derived["road"].astype(np.uint8), per.appearance.work_size,
                            interpolation=cv2.INTER_NEAREST).astype(bool)
     ctx.extras = {
@@ -215,4 +221,5 @@ def _moving_boxes(tracks: list[Track], times: list[float]) -> dict[int, list[np.
 
 
 def detect_events(video_path: str) -> list[list]:
+    budget.mark_start(video_path)   # Part B paces itself against the same per-video clock
     return analyze(video_path).events

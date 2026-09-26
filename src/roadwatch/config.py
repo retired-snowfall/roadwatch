@@ -129,6 +129,8 @@ class RiskCfg:
     ema: float = 0.5                  # smoothing of the fused score (per analysed frame)
     ttc_scale: float = 1.4            # s; risk halves roughly every ttc_scale beyond the knee
     hold: float = 1.5                 # s a high score is held after its cue disappears
+    min_fps: float = 1.5              # the time guard never analyses fewer frames per second
+    guard_every: float = 3.0          # s of video between time-guard checks
 
 
 @dataclass

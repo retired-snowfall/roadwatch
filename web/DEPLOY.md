@@ -16,7 +16,19 @@ python tools/evaluate_dev.py --videos samples --labels labels/dev_labels.json --
 `web/static/data/**/*.mp4` (previews and annotated renders) are git-ignored because of their size; the host needs
 them, so upload them together with the image (Hugging Face: via git-lfs, see below).
 
-## Option A — Hugging Face Spaces (free CPU, Docker SDK)
+## Option A — Hugging Face Spaces via GitHub Actions (recommended)
+
+`.github/workflows/deploy-space.yml` runs `web/deploy_space.py` on every push: it creates the Space
+`<hf-user>/roadwatch` (Docker SDK, free CPU) on first run and uploads the site, the demo backend and the weights.
+One-time setup:
+
+1. Create a Hugging Face account; under *Settings → Access Tokens* create a token with **write** access.
+2. In this GitHub repository: *Settings → Secrets and variables → Actions → New repository secret*,
+   name `HF_TOKEN`, value the token. (Optional: a variable `HF_SPACE` to choose another Space name.)
+3. *Actions → Deploy website → Run workflow* (or push). The site appears at `https://<hf-user>-roadwatch.hf.space`
+   after the image builds (~10 minutes the first time).
+
+## Option A′ — Hugging Face Spaces by hand
 
 1. Create a Space: SDK **Docker**, hardware **CPU basic**.
 2. Clone it, copy this repository into it, and make the web Dockerfile the Space's root Dockerfile:

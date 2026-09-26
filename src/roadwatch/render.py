@@ -55,8 +55,10 @@ def draw_scene(img: np.ndarray, scene: dict, scale: float) -> None:
 
 
 def draw_frame(frame: np.ndarray, t: float, lookup: TrackLookup, events: list, risk: float | None,
-               highlight: dict, scene: dict | None = None, scale: float = 1.0) -> np.ndarray:
-    img = frame if scale == 1.0 else cv2.resize(frame, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+               highlight: dict, scene: dict | None = None, scale: float = 1.0, resize: bool = True) -> np.ndarray:
+    """Draw overlays; `scale` maps working pixels to the output. resize=False: frame is already output-sized."""
+    img = frame if scale == 1.0 or not resize else cv2.resize(frame, None, fx=scale, fy=scale,
+                                                             interpolation=cv2.INTER_AREA)
     if scene:
         draw_scene(img, scene, scale)
     active = [e for e in events if e[0] <= t <= e[1]]
@@ -95,8 +97,9 @@ def render_video(video_path: str, result: dict, out_path: str | Path, risk: list
     cap = cv2.VideoCapture(str(video_path))
     fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
     w, h = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    scale = min(1.0, max_width / w)
-    size = (int(w * scale) // 2 * 2, int(h * scale) // 2 * 2)
+    s = min(1.0, max_width / w)
+    size = (int(w * s) // 2 * 2, int(h * s) // 2 * 2)
+    scale = size[0] / float(result.get("width") or w)  # result coordinates are in working pixels
     fps_out = fps_out or fps
     step = max(1, int(round(fps / fps_out)))
     writer = imageio_ffmpeg.write_frames(str(out_path), size, fps=fps / step, codec="libx264",
@@ -118,8 +121,9 @@ def render_video(video_path: str, result: dict, out_path: str | Path, risk: list
             r = None
             if risk_t is not None and len(risk_t):
                 r = risk[min(int(np.searchsorted(risk_t, t)), len(risk) - 1)][1]
-            img = draw_frame(frame, t, lookup, result["events"], r, highlight, result.get("scene"), scale)
-            writer.send(np.ascontiguousarray(cv2.resize(img, size)))
+            img = cv2.resize(frame, size, interpolation=cv2.INTER_AREA)
+            img = draw_frame(img, t, lookup, result["events"], r, highlight, result.get("scene"), scale, resize=False)
+            writer.send(np.ascontiguousarray(img))
         idx += 1
     writer.close()
     cap.release()

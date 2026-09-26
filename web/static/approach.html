@@ -36,7 +36,7 @@
     <span class="k-rule">hand-written rules</span><span class="k-classic">classical signal processing</span></div>
   <div class="flow">
     <div class="stage classic"><span class="tag pill">sampling</span><h4>Frames</h4>
-      <p>Decode every frame; analyse 8 per second on GPU (5 on CPU). Skipped frames are only grabbed, not converted.</p></div>
+      <p>The camera writes 4K 10-bit video. The decoder skips frames no other frame depends on (2 of every 3), scales the rest to a fixed 1920-pixel working width in C, and runs in a background thread while the GPU detects. Analysis: 8 frames per second on GPU (5 on CPU).</p></div>
     <div class="stage learned"><span class="tag pill">learned</span><h4>Detect</h4>
       <p>YOLO11-m at 1280 px, FP16, batches of 8 (YOLO11-n at 640 px on CPU). COCO classes: people, bicycles, cars,
         motorcycles, buses, trucks, animals, traffic lights.</p></div>

@@ -36,7 +36,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
     os.environ.setdefault("ROADWATCH_CACHE", str(ROOT / ".cache" / "perception"))
 
-    videos = sorted(Path(args.videos).glob("*.mp4"))
+    videos = sorted(q for q in Path(args.videos).iterdir() if q.suffix.lower() == ".mp4")
     if not videos:
         sys.exit(f"no .mp4 in {args.videos}")
     scene: SceneModel | None = None
@@ -44,16 +44,16 @@ def main() -> None:
     for p in videos:
         info = probe(str(p))
         per = perceive(info, CFG, lambda stage, f: None)
-        tracks = build_tracks(per.records, CFG.kin, info.width, info.height)
+        tracks = build_tracks(per.records, CFG.kin, info.work_width, info.work_height)
         bg = per.appearance.background()
-        bg_full = None if bg is None else cv2.resize(bg, (info.width, info.height))
+        bg_full = None if bg is None else cv2.resize(bg, info.work)
         if bg_full is not None:
             backgrounds.append(bg_full)
         if scene is None:
-            scene = SceneModel(info.width, info.height, CFG.scene)
-        elif (scene.width, scene.height) != (info.width, info.height):
-            logging.warning("%s: resolution %dx%d differs from %dx%d, skipped", p.name, info.width,
-                            info.height, scene.width, scene.height)
+            scene = SceneModel(info.work_width, info.work_height, CFG.scene)
+        elif (scene.width, scene.height) != info.work:
+            logging.warning("%s: working size %dx%d differs from %dx%d, skipped", p.name, *info.work,
+                            scene.width, scene.height)
             continue
         scene.accumulate(tracks, info.duration, CFG.kin, bg_full)
         logging.info("%s: %.0fs, %d tracks, %d analysed frames", p.name, info.duration, len(tracks), per.analysed)

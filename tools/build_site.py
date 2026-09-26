@@ -55,7 +55,7 @@ def build_video(path: Path, out_root: Path, skip_media: bool) -> dict:
         cv2.imwrite(str(poster), cv2.resize(frame, (640, int(frame.shape[0] * 640 / frame.shape[1]))),
                     [cv2.IMWRITE_JPEG_QUALITY, 80])
     return {"id": path.stem, "video": path.name, "duration": result["duration"], "fps": result["fps"],
-            "width": result["width"], "height": result["height"], "events": result["events"],
+            "width": result["source_width"], "height": result["source_height"], "events": result["events"],
             "n_events": len(result["events"]), "lighting": result["eda"]["lighting"],
             "max_risk": max((r[1] for r in risk), default=0.0), "timings": result["timings"]}
 
@@ -71,7 +71,7 @@ def main() -> None:
     out_root = Path(args.out)
     out_root.mkdir(parents=True, exist_ok=True)
 
-    videos = sorted(Path(args.videos).glob("*.mp4"))
+    videos = sorted(q for q in Path(args.videos).iterdir() if q.suffix.lower() == ".mp4")
     index = {"videos": [build_video(p, out_root, args.skip_media) for p in videos]}
 
     prior = load_prior()

@@ -8,9 +8,12 @@
 
 ## How to label
 
-1. Serve the site (`uvicorn web.app:app --port 7860`) and open http://localhost:7860/annotate.html
-   (the video never leaves your machine).
-2. Open a sample video, pick a class (keys 1–9, 0, Q, W, R, T), press **S** at the start and **E** at the end.
+1. Open the site's annotator (`annotate.html` on the hosted site, or locally: `uvicorn web.app:app --port 7860`,
+   then http://localhost:7860/annotate.html).
+2. Click one of the **sample videos hosted on the site** (browser-friendly copies: the camera's 4K 10-bit
+   4:2:2 originals do not play in browsers). Our pipeline's events load as faded "pred" bars;
+   **Use as starting labels** copies them in as a draft. Then correct it: delete false events, add missed ones,
+   fix each start and end. Pick a class (keys 1–9, 0, Q, W, R, T), press **S** at the start and **E** at the end.
    Space plays/pauses, ←/→ step one frame, Shift+←/→ one second.
 3. Follow the start/end conventions in the page's "Labelling conventions" box — they are the organisers'.
    Two simultaneous events of the same class are one segment; an event that runs past the end of the video

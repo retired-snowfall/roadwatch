@@ -1,0 +1,24 @@
+# Publishes the website + live demo to a Hugging Face Space (see web/deploy_space.py).
+# One-time setup: repository secret HF_TOKEN = a Hugging Face token with write access.
+name: Deploy website
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, claude/zen-tesla-kuq5es]
+    paths: ["web/**", "src/**", "weights/**", "solution.py", "requirements.txt", ".github/workflows/deploy-space.yml"]
+concurrency:
+  group: deploy-space
+  cancel-in-progress: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install "huggingface_hub>=0.25,<1"
+      - run: python web/deploy_space.py
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE: ${{ vars.HF_SPACE }}

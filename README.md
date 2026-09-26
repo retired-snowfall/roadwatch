@@ -49,6 +49,7 @@ Part B (causal):  frame ──► detector (6 fps) ──► online tracker ─�
 
 | Component | Learned or rule-based | Where |
 |---|---|---|
+| Video decoding | classical: PyAV (FFmpeg) skips non-reference frames and scales to a fixed 1920-px working width in a background thread; all geometry is in working pixels, so 4K and 1080p copies of the camera agree | `video.py` |
 | Road-user and traffic-light detection | learned: YOLO11-m (GPU, 1280 px) / YOLO11-n (CPU, 640 px), COCO-pretrained, not fine-tuned | `src/roadwatch/detector.py` |
 | Tracking | classical: Kalman filter + two-stage association (ByteTrack), class-group gating, centre-distance fallback | `tracker.py` |
 | Trajectories | classical: fragment stitching, rider suppression, local-linear smoothing, speeds in object sizes/s | `tracks.py` |

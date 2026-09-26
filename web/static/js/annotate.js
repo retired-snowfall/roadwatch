@@ -555,6 +555,7 @@ function showTip(e) {
 function renderPredInfo() {
   const info = $("predInfo");
   $("clearPred").hidden = !preds;
+  $("adoptPred").hidden = !preds || !predEvents().length;
   if (!preds) return;
   const n = Object.keys(preds.videos).length;
   const team = preds.team ? `team “${preds.team}”` : "unnamed team";
@@ -646,6 +647,55 @@ $("predFile").addEventListener("change", async (e) => {
   }
 });
 $("clearPred").addEventListener("click", () => { preds = null; renderAll(); $("predInfo").textContent = "Predictions hidden."; });
+// Copy the predicted events of this video into its labels, as a draft to correct.
+$("adoptPred").addEventListener("click", () => {
+  const pe = predEvents();
+  const v = cur();
+  if (!v || !pe.length) return;
+  if (v.events.length && !confirm(`${current} already has ${plural(v.events.length, "segment")}. Add the ${plural(pe.length, "predicted event")} to them?`)) return;
+  for (const [s, e, label] of pe) v.events.push({ id: seq++, s: round2(s), e: round2(e), label });
+  sortEvents(v);
+  save();
+  renderAll();
+  status(`Added ${plural(pe.length, "predicted event")} to the labels of ${current}: check each start, end and class.`);
+});
+
+// Sample videos published with the site (tools/build_site.py): browser-playable previews plus
+// the pipeline's events for each, so the team can label without the multi-GB camera originals.
+async function loadSamples() {
+  let index;
+  try {
+    const r = await fetch("data/index.json", { cache: "no-cache" });
+    if (!r.ok) return;
+    index = await r.json();
+  } catch { return; }
+  const vids = (index.videos || []).filter((v) => v.id && v.video);
+  if (!vids.length) return;
+  const box = $("sampleBtns");
+  box.replaceChildren(...vids.map((v) => el("button", {
+    class: "btn sm", type: "button",
+    title: `${fmtTime(v.duration)} · ${plural(v.n_events ?? 0, "predicted event")}`,
+    onclick: () => openSample(v),
+  }, v.video)));
+  $("samples").hidden = false;
+}
+
+async function openSample(v) {
+  urls.set(v.video, `data/${encodeURIComponent(v.id)}/preview.mp4`);
+  const e = entry(v.video);
+  if (v.fps) e.fps = round2(v.fps);
+  try {
+    const r = await fetch(`data/${encodeURIComponent(v.id)}/result.json`);
+    if (r.ok) {
+      const res = await r.json();
+      preds ||= { team: "roadwatch (this site)", videos: {} };
+      preds.videos[v.video] = { events: res.events || [] };
+    }
+  } catch { /* predictions are optional */ }
+  openVideo(v.video);
+  save();
+}
+loadSamples();
 
 window.addEventListener("keydown", (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;

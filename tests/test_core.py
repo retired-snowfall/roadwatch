@@ -81,3 +81,22 @@ def test_finalized_events_are_valid_for_the_harness(n):
     events = [[1.0 + i, 2.0 + i, "jaywalking"] for i in range(0, 2 * n, 2)]
     kept, problems = clean_events(events, solution.CLASSES, 60.0)
     assert kept == events and problems == []
+
+
+def test_risk_time_guard_lowers_rate_only_when_behind():
+    import time
+
+    from roadwatch.risk import CausalRisk
+    from roadwatch.video import FrameSampler
+
+    def estimator(seconds_left: float) -> CausalRisk:
+        r = CausalRisk.__new__(CausalRisk)   # no detector needed for the guard
+        r.cfg, r.duration = CFG, 100.0
+        r.sampler = FrameSampler(30.0, 6.0)
+        r.deadline = time.perf_counter() + seconds_left
+        r._guard = (time.perf_counter() - 3.0, 10.0)   # recent pace: 1 wall second per video second
+        r._time_guard(13.0)
+        return r
+
+    assert estimator(seconds_left=20.0).sampler.rate < 6.0      # 87 s of video left, 20 s of budget
+    assert estimator(seconds_left=500.0).sampler.rate == pytest.approx(6.0)
