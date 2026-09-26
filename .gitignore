@@ -13,5 +13,5 @@ __pycache__/
 runs/
 *.egg-info/
 .venv/
-# generated site media (large; built by tools/build_site.py, shipped with the web image)
-web/static/data/**/*.mp4
+# generated site media (built by tools/build_site.py): committed, the website deploys from the repository
+!web/static/data/samples/*/*.mp4

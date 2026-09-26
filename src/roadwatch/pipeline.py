@@ -74,7 +74,7 @@ class Analysis:
             "duration": round(self.info.duration, 3), "n_frames": self.info.n_frames,
             "events": self.events, "candidates": [c.as_json() for c in self.candidates],
             "tracks": tracks, "timings": self.timings, "used_prior": self.used_prior,
-            "registered": self.H is not None, "scene": layers,
+            "registered": self.H is not None, "registration": _registration_json(self.H), "scene": layers,
             "signals": {str(k): v for k, v in self.context.signals.items()},
         }
 
@@ -160,6 +160,15 @@ def build_scene(info: VideoInfo, tracks: list[Track], background: np.ndarray | N
     if prior is not None and (registered or (prior.background is None and current.similar_to(prior))):
         return prior.merged_with(current), True
     return current, False
+
+
+def _registration_json(H: np.ndarray | None) -> dict | None:
+    """Shift (px) and zoom of the video relative to the reference view."""
+    if H is None:
+        return None
+    return {"shift": [round(float(H[0, 2]), 1), round(float(H[1, 2]), 1)],
+            "scale": round(float(np.sqrt(abs(np.linalg.det(H[:2, :2])))), 4),
+            "rotation_deg": round(float(np.degrees(np.arctan2(H[1, 0], H[0, 0]))), 2)}
 
 
 def _view_layers(sc: SceneModel, H_inv: np.ndarray | None) -> dict:

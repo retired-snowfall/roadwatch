@@ -11,6 +11,15 @@ function tile(label, value, note = "") {
     note ? el("div", { class: "note" }, note) : "");
 }
 
+// How this recording's framing differs from the reference view (the camera is re-aimed between recordings).
+function viewTile(reg) {
+  if (!reg) return tile("Camera view", "own view", "not registered: analysed without the learned junction");
+  const [dx, dy] = reg.shift;
+  const same = Math.hypot(dx, dy) < 3 && Math.abs(reg.scale - 1) < 0.005;
+  return tile("Camera view", same ? "reference" : `${dx.toFixed(0)}, ${dy.toFixed(0)} px`,
+    same ? "the view the junction was learned in" : `shift from the reference view · zoom ${(reg.scale * 100).toFixed(1)} %`);
+}
+
 async function show(id, seekTo = null) {
   const v = index.videos.find((x) => x.id === id);
   for (const b of $("tabs").children) b.setAttribute("aria-selected", b.dataset.id === id);
@@ -20,7 +29,7 @@ async function show(id, seekTo = null) {
     tile("Duration", fmtTime(v.duration), `${v.width}×${v.height} @ ${v.fps.toFixed(0)} fps · ${v.lighting}`),
     tile("Events", String(result.events.length), [...new Set(result.events.map((e) => className(e[2])))].slice(0, 3).join(", ") || "none"),
     tile("Peak accident risk", result.risk.length ? Math.max(...result.risk.map((r) => r[1])).toFixed(2) : "–", "alarm at ≥ 0.50"),
-    tile("Processing", `${result.timings.realtime_factor.toFixed(2)}×`, `real time · Part A on ${result.timings.device.toUpperCase()}`));
+    viewTile(result.registration));
   viewer = new ResultViewer($("viewer"), { result, videoUrl: `${base}/preview.mp4`, annotatedUrl: `${base}/annotated.mp4` });
   if (seekTo !== null) {
     viewer.video.addEventListener("loadedmetadata", () => { viewer.video.currentTime = seekTo; }, { once: true });

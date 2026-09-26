@@ -1,4 +1,5 @@
-# Publishes the website + live demo to a Hugging Face Space (see web/deploy_space.py).
+# Publishes the website to a Hugging Face Space (see web/deploy_space.py): static by default,
+# with the live demo calling the server in the ROADWATCH_API variable (see web/deploy_vm.sh).
 # One-time setup: repository secret HF_TOKEN = a Hugging Face token with write access.
 name: Deploy website
 on:
@@ -22,3 +23,5 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_SPACE: ${{ vars.HF_SPACE }}
+          HF_SPACE_SDK: ${{ vars.HF_SPACE_SDK }}
+          ROADWATCH_API: ${{ vars.ROADWATCH_API }}

@@ -46,7 +46,8 @@ def video_stats(an: Analysis, bin_sec: float = 10.0) -> dict:
         "duration": round(info.duration, 2), "n_frames": info.n_frames,
         "size_mb": round(Path(info.path).stat().st_size / 1e6, 1),
         "bitrate_mbps": round(Path(info.path).stat().st_size * 8 / 1e6 / max(info.duration, 1e-6), 2),
-        "lighting": "night" if bright < 60 else "dusk/overcast" if bright < 100 else "day",
+        # grey mean of whole frames; asphalt keeps a sunlit junction around 90-100
+        "lighting": "night" if bright < 30 else "dusk/overcast" if bright < 80 else "day",
         "mean_brightness": None if np.isnan(bright) else round(float(bright), 1),
         "brightness": light,
         "bins": edges[:-1].tolist(), "bin_sec": bin_sec,
