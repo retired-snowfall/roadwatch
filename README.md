@@ -107,12 +107,13 @@ on the CPU is the main cost (NVDEC does not decode 4:2:2 H.264):
   batches of 8 (FP16 on GPU).
 * Part B receives every full-size frame from the harness (its OpenCV decode is the largest single cost and
   outside our control) and detects 6 frames/s at ≤ 960 px (CPU: 5 and 3 frames/s).
-* Guards: Part A lowers its rate if it runs slower than 1.6× real time; Part B paces itself against the same
+* Guards: Part A lowers its rate if it runs slower than 1.2× real time; Part B paces itself against the same
   per-video clock (`src/roadwatch/budget.py`) and lowers its rate if its projected finish nears 85 % of the budget.
 
-Measured with the unchanged harness on the 4K original of C3905 (127.6 s), **4 CPU cores and no GPU**:
-Part A 106 s (0.83×), Part B 160 s (1.26×), total 267 s = **2.09×** real time. The target machine has 8 cores
-and a T4, so both decoding and detection are faster there.
+Measured with the unchanged harness on the 4K original of C3905 (127.6 s), **4 CPU cores and no GPU**, three
+runs on shared cloud machines: total 2.09×, 2.47× and 2.89× real time (Part A 0.83–1.55×, Part B 1.26–1.49×;
+the spread is the machines, not the code). The target machine has 8 cores and a T4, so both decoding and
+detection are faster there.
 
 ### Determinism
 

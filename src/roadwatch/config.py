@@ -38,7 +38,7 @@ class PerceptionCfg:
     conf_min: float = 0.10            # keep low-score boxes for the second ByteTrack stage
     background_samples: int = 120     # frames kept (downscaled) for the background model
     background_width: int = 640
-    budget_share: float = 1.6         # Part A may use this many x video duration before stride grows
+    budget_share: float = 1.2         # Part A may use this many x video duration before stride grows
 
 
 @dataclass
