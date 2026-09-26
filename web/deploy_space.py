@@ -94,7 +94,35 @@ def main() -> int:
     host = space.replace("/", "-").replace("_", "-").lower()
     site = f"https://{host}.static.hf.space" if sdk == "static" else f"https://{host}.hf.space"
     print(f"deployed to https://huggingface.co/spaces/{space}  (site: {site})")
+    if sdk == "docker":
+        return wait_until_running(api, space, site)
     return 0
+
+
+def wait_until_running(api, space: str, site: str, timeout: float = 40 * 60) -> int:
+    """Follow the Space's image build so the workflow run shows whether the site came up."""
+    import time
+    import urllib.request
+
+    t0, last = time.time(), None
+    while time.time() - t0 < timeout:
+        rt = api.get_space_runtime(space)
+        if rt.stage != last:
+            print(f"[{time.time() - t0:5.0f}s] Space stage: {rt.stage} (hardware: {rt.hardware})")
+            last = rt.stage
+        if rt.stage == "RUNNING":
+            try:
+                with urllib.request.urlopen(f"{site}/api/health", timeout=30) as r:
+                    print("health:", r.read().decode()[:300])
+            except Exception as exc:  # the proxy may need a moment after the container starts
+                print(f"health check failed: {exc}")
+            return 0
+        if rt.stage in ("BUILD_ERROR", "RUNTIME_ERROR", "CONFIG_ERROR", "NO_APP_FILE"):
+            print("Space failed:", (rt.raw or {}).get("errorMessage", rt.stage))
+            return 1
+        time.sleep(30)
+    print("Space did not reach RUNNING in time; see its logs on huggingface.co")
+    return 1
 
 
 if __name__ == "__main__":
