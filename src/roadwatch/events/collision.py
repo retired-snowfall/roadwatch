@@ -45,7 +45,8 @@ def pair_series(ctx: Context, min_size: float, max_dist: float = 4.0, horizon: f
         box = np.array([tracks[ti].box[si] for ti, si in items])
         motor = np.array([tracks[ti].group in MOTORISED for ti in ti_arr])
 
-        sbar = (size[:, None] + size[None, :]) / 2
+        # mean size, capped at 1.5x the smaller party: a bus must not make a car behind it look close
+        sbar = np.minimum((size[:, None] + size[None, :]) / 2, 1.5 * np.minimum(size[:, None], size[None, :]))
         rel = foot[None, :, :] - foot[:, None, :]
         dist = np.linalg.norm(rel, axis=2) / sbar
         rv = vel[None, :, :] - vel[:, None, :]
@@ -77,23 +78,33 @@ def pair_series(ctx: Context, min_size: float, max_dist: float = 4.0, horizon: f
 
 # --------------------------------------------------------------------------- accident
 def _impact(tr: Track, tc: float, cfg: EventCfg) -> tuple[float, dict]:
-    """How abruptly this road user's motion changed at time tc (0..1) and why."""
+    """How abruptly this road user's motion changed at time tc (0..1) and why.
+
+    At a busy junction most apparent impacts are artefacts: an identity switch between queued
+    cars (a jump, or a "fast" track that was standing still a moment before), or an ordinary turn.
+    So the party must have been observed moving steadily before contact, its track must not
+    jump, and a change of heading only counts together with a real loss of speed."""
     v_early = tr.median_in(tr.speed_fast, tc - 2.5, tc - 1.2)
     v_pre = tr.median_in(tr.speed_fast, tc - 1.0, tc - 0.05)
     v_post = tr.median_in(tr.speed_fast, tc + 0.4, tc + 1.4)
-    feats = {"v_pre": v_pre, "v_post": v_post}
-    if np.isnan(v_pre) or np.isnan(v_post):
+    feats = {"v_pre": v_pre, "v_post": v_post, "v_early": v_early}
+    if np.isnan(v_pre) or np.isnan(v_post) or np.isnan(v_early) or tc - tr.start < cfg.acc_min_history:
         return 0.0, feats
+    jump = tr.jump(tc - 1.5, tc + 1.5)
+    feats["jump"] = jump
+    if jump > cfg.acc_max_jump or v_early < 0.6 * v_pre:
+        return 0.0, feats   # identity switch or a detector glitch, not a vehicle that was driving
     drop = v_pre - v_post
     score = np.clip((drop - 0.5) / 1.5, 0, 1) if v_pre >= cfg.acc_min_prior_speed else 0.0
-    if not np.isnan(v_early) and v_early > 1.5 * max(v_pre, 0.1):
+    if v_early > 1.5 * max(v_pre, 0.1):
         score *= 0.4  # already braking hard before contact: a controlled stop, not an impact
     pre = tr.window(tc - 1.0, tc)
     post = tr.window(tc + 0.2, tc + 1.2)
-    if v_pre >= 0.8 and len(tr.heading[pre]) and len(tr.heading[post]) and v_post >= 0.4:
+    if v_pre >= 0.8 and len(tr.heading[pre]) and len(tr.heading[post]) and v_post >= 0.4 and drop >= 0.5 * v_pre:
         turn = float(angle_diff(np.median(tr.heading[post]), np.median(tr.heading[pre])))
         feats["deflection"] = turn
-        score = max(score, np.clip((turn - 30) / 40, 0, 1))
+        if turn <= 150:  # a reversal within a second is a tracking flip
+            score = max(score, np.clip((turn - 30) / 40, 0, 1))
     if tr.group == "person":
         asp = tr.aspect()
         a_pre = np.median(asp[pre]) if len(asp[pre]) else np.nan
@@ -138,7 +149,11 @@ def detect_accidents(ctx: Context, series: dict, cfg: EventCfg) -> list[Candidat
             rb, rest_b = _rest_time(tb, tc, cfg, cfg.acc_max_len)
             after = (s["t"] > tc) & (s["t"] <= tc + 4.0)
             stay_close = bool(after.any() and np.median(s["dist"][after]) < 1.6)
-            post = 1.0 if (rest_a or rest_b) and stay_close else 0.6 if (rest_a or rest_b) else 0.2
+            moving_a = fa["v_pre"] >= cfg.acc_min_prior_speed   # NaN compares False
+            moving_b = fb["v_pre"] >= cfg.acc_min_prior_speed
+            if not ((rest_a and moving_a) or (rest_b and moving_b)):
+                continue  # no party that was driving came to a stop: a close pass, not a crash
+            post = 1.0 if stay_close else 0.6
             score = 0.55 * impact + 0.30 * post + 0.15 * float(closing)
             if score < 0.6:
                 continue
@@ -167,7 +182,11 @@ def _evasion(tr: Track, t0: float, t1: float, cfg: EventCfg) -> tuple[float | No
             return float(t[k]), "brake"
     for k in range(len(t)):
         later = np.where((t > t[k]) & (t <= t[k] + 1.0) & (v > 0.8))[0]
-        if v[k] > 0.8 and len(later) and angle_diff(hd[later], hd[k]).max() > cfg.nm_swerve_deg:
+        if not (v[k] > 0.8 and len(later) and angle_diff(hd[later], hd[k]).max() > cfg.nm_swerve_deg):
+            continue
+        # an evasive swerve comes back towards the original heading; a turn at the junction does not
+        back = tr.window(t[k] + 1.0, t[k] + 2.5)
+        if len(tr.heading[back]) and angle_diff(np.median(tr.heading[back]), hd[k]) < 0.5 * cfg.nm_swerve_deg:
             return float(t[k]), "swerve"
     return None, ""
 
@@ -191,6 +210,9 @@ def detect_near_misses(ctx: Context, series: dict, accidents: list[Candidate], c
         if not onsets:
             continue
         onset, kind, actor = min(onsets, key=lambda x: x[0])
+        va, vb = ta.vel[ta.index_at(tk)], tb.vel[tb.index_at(tk)]
+        same_way = min(np.hypot(*va), np.hypot(*vb)) > 1e-3 and \
+            angle_diff(np.degrees(np.arctan2(va[1], va[0])), np.degrees(np.arctan2(vb[1], vb[0]))) < 35
         span = (s["t"] >= onset) & (s["t"] <= onset + 6.0)
         if not span.any():
             continue
@@ -199,6 +221,8 @@ def detect_near_misses(ctx: Context, series: dict, accidents: list[Candidate], c
             continue  # they touched: that is an accident candidate, not a near miss
         if min_dist > (2.0 if kind == "brake" else 1.2):
             continue  # never got close: ordinary braking or turning, not a near miss
+        if same_way and min_dist > cfg.nm_follow_gap:
+            continue  # closing up on the car ahead (a queue forming) is ordinary following
         k_min = int(np.where(span)[0][np.argmin(s["dist"][span])])
         clear = np.where((s["t"] > s["t"][k_min]) & (s["dist"] > max(1.5, min_dist + 0.8)))[0]
         end = float(s["t"][clear[0]]) if len(clear) else min(float(s["t"][span][-1]), onset + 4.0)

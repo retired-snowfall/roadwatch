@@ -64,17 +64,28 @@ docstrings. Every rule prefers precision: a class predicted but absent from the 
 
 ### Time budget
 
-Limit: 3 × video duration for Part A + Part B together. Part A decodes every frame but runs the detector on
-8 frames/s in batches of 8 (FP16 on GPU); Part B detects 6 frames/s (CPU: 5 and 3). A guard lowers the analysis
-rate if detection runs more than 1.6× slower than real time. Measured without a GPU on 4 cores: about
-0.6× real time for Part A + Part B on 640-pixel clips.
+Limit: 3 × video duration for Part A + Part B together; `run_submission.py` scores a video that runs over as
+empty (events *and* risk). The organisers' camera writes 4K 10-bit 4:2:2 H.264 at ~140 Mbit/s, and decoding it
+on the CPU is the main cost (NVDEC does not decode 4:2:2 H.264):
+
+* Part A decodes with PyAV, skipping non-reference frames (2 of every 3 in this camera's GOP) and scaling to a
+  1920-px working width in a background thread, so decoding overlaps detection; it analyses 8 frames/s in
+  batches of 8 (FP16 on GPU).
+* Part B receives every full-size frame from the harness (its OpenCV decode is the largest single cost and
+  outside our control) and detects 6 frames/s at ≤ 960 px (CPU: 5 and 3 frames/s).
+* Guards: Part A lowers its rate if it runs slower than 1.6× real time; Part B paces itself against the same
+  per-video clock (`src/roadwatch/budget.py`) and lowers its rate if its projected finish nears 85 % of the budget.
+
+Measured with the unchanged harness on the 4K original of C3905 (127.6 s), **4 CPU cores and no GPU**:
+Part A 106 s (0.83×), Part B 160 s (1.26×), total 267 s = **2.09×** real time. The target machine has 8 cores
+and a T4, so both decoding and detection are faster there.
 
 ### Determinism
 
 Seeds are fixed (`SEED = 1234` in `src/roadwatch/config.py`; Python, NumPy, torch), cuDNN runs in deterministic
-mode, frames are selected by index (not wall-clock), and the tracker and rules are deterministic. The only
-wall-clock-dependent behaviour is the slow-machine guard above, which does not trigger at the configured rates on
-the target hardware.
+mode, frames are selected by timestamp (not wall-clock), and the tracker and rules are deterministic. The only
+wall-clock-dependent behaviour is the pair of slow-machine guards above, which do not trigger at the configured
+rates on the target hardware.
 
 ## Reproduce the calibration, the website data and `predictions_samples.json`
 

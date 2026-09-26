@@ -101,11 +101,13 @@
 
   <h2>Engineering</h2>
   <div class="grid grid-2">
-    <div class="card"><h3>Time budget</h3><p class="muted">The limit is 3× the video length for Part A and Part B together.
-      Part A analyses 8 fps in batches; Part B 6 fps, one frame at a time. A guard lowers the analysis rate if detection runs
-      more than 1.6× slower than real time, so a slow machine degrades gracefully instead of timing out. Measured on a 4-core CPU without a GPU: about 0.6× real time end to end on 640-pixel test clips (full-HD figures are on the report page).</p></div>
+    <div class="card"><h3>Time budget</h3><p class="muted">The limit is 3× the video length for Part A and Part B together;
+      over it, the harness scores the video as empty. Decoding the camera's 4K 10-bit video is the main cost, so Part A skips
+      non-reference frames and scales in a background thread while the GPU detects 8 fps; Part B detects 6 fps. Both parts pace
+      themselves against one per-video clock and lower their rate if they fall behind. Measured with the unchanged harness on a
+      4K sample, 4 CPU cores and no GPU: 2.09× real time (Part A 0.83×, Part B 1.26×).</p></div>
     <div class="card"><h3>Determinism</h3><p class="muted">Fixed seeds, cuDNN deterministic mode, deterministic frame selection
-      (by index, not wall clock) and a deterministic tracker. Two runs give the same predictions.json.</p></div>
+      (by timestamp, not wall clock) and a deterministic tracker. Two runs give the same predictions.json.</p></div>
     <div class="card"><h3>Caching</h3><p class="muted">Detections and tracks can be cached per video (<code>ROADWATCH_CACHE</code>),
       so re-scoring after a rule change takes seconds. The official run does not use a cache.</p></div>
     <div class="card"><h3>Offline</h3><p class="muted">Weights ship in <code>weights/</code> (YOLO11-m 40 MB, YOLO11-n 5.6 MB, plus

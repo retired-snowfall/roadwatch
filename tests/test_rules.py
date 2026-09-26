@@ -164,3 +164,33 @@ def test_signal_queues_are_learned_as_a_stop_line():
     lines = fresh.stop_lines()
     assert len(lines) == 1 and abs(lines[0]["dir"]) < 15
     assert 1150 < (lines[0]["a"][0] + lines[0]["b"][0]) / 2 < 1260
+
+
+def test_identity_switch_in_a_queue_is_not_an_accident(scene):
+    # a stopped car's track jumps onto the stopped car ahead (a detector/tracker glitch), then stays
+    lead = make_track(1, [(0, 900, 470), (30, 900, 470)])
+    hop = make_track(2, [(0, 600, 470), (5.0, 600, 470), (5.2, 860, 470), (30, 860, 470)])
+    cands = collision.detect(context([lead, hop], scene), CFG.events)
+    assert [c for c in cands if c.label == "accident"] == [], [c.as_json() for c in cands]
+
+
+def test_turning_past_a_stopped_car_is_not_an_accident(scene):
+    parked = make_track(1, [(0, 1000, 560), (30, 1000, 560)])
+    turner = make_track(2, [(0, 200, 470), (4, 900, 470), (4.6, 960, 500), (5.2, 990, 580), (8, 1000, 900)])
+    cands = collision.detect(context([parked, turner], scene), CFG.events)
+    assert "accident" not in labels(cands), [c.as_json() for c in cands]
+
+
+@pytest.mark.parametrize("ped_x, y_end, expected", [(1230, 420, True), (1650, 640, False)])
+def test_failure_to_yield_needs_a_pedestrian_next_to_the_car(scene, ped_x, y_end, expected):
+    """The walker crosses into the car's lanes (True) or stays in the opposite lanes (False)."""
+    import copy
+
+    sc = copy.deepcopy(scene)
+    # a crosswalk across the whole road, x 1150..1700, y 400..690 (normalised coordinates)
+    sc.zones["crosswalks"] = [{"points": [[1150 / 1920, 400 / 1080], [1700 / 1920, 400 / 1080],
+                                          [1700 / 1920, 690 / 1080], [1150 / 1920, 690 / 1080]]}]
+    car = make_track(1, [(0, 100, 470), (6, 1900, 470)])                     # ~3 sizes/s, never slows
+    walker = make_track(2, [(0, ped_x, 690), (8, ped_x, y_end)], group="person", size=(30, 80), cls=0)
+    cands = pedestrian.detect_failure_to_yield(context([car, walker], sc), CFG.events)
+    assert (labels(cands) == ["failure_to_yield"]) is expected, [c.as_json() for c in cands]

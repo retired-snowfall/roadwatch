@@ -72,6 +72,7 @@ class SceneModel:
     movements: Counter = field(default_factory=Counter)
     zones: dict = field(default_factory=empty_zones)
     thumb: np.ndarray = None                           # grey background thumbnail (scene identity)
+    background: np.ndarray = None                      # reference-view background (registration), not in JSON
 
     def __post_init__(self):
         gh, gw, nb = self.cfg.grid_h, self.cfg.grid_w, self.cfg.dir_bins
@@ -104,7 +105,7 @@ class SceneModel:
         for tr in tracks:
             if tr.group in ("vehicle", "two_wheeler"):
                 for i, f in enumerate(tr.fidx):
-                    frame_feet.setdefault(int(f), []).append((tr.tid, tr.foot[i], tr.size[i]))
+                    frame_feet.setdefault(int(f), []).append((tr.tid, tr.foot[i], tr.size[i], tr.speed[i]))
         for tr in tracks:
             ok = ~tr.edge
             if tr.group == "person":
@@ -170,9 +171,10 @@ class SceneModel:
         """
         heads = []
         still = tr.speed < kin.stationary_speed
-        for s, e in runs(still):
+        for s, e in _merge_runs(tr, runs(still), kin):
             wait = tr.t[e] - tr.t[s]
-            if not (3.0 <= wait <= 180.0) or not tr.arrived_moving(s) or not tr.departs_moving(e):
+            # a car rolls into a queue slowly: look further back than the default 3 s for its arrival
+            if not (3.0 <= wait <= 180.0) or not tr.arrived_moving(s, window=6.0) or not tr.departs_moving(e):
                 continue
             before = tr.window(tr.t[s] - 3.0, tr.t[s])
             v = tr.foot[before][-1] - tr.foot[before][0]
@@ -180,16 +182,19 @@ class SceneModel:
             m = (s + e) // 2
             foot, size = tr.foot[m], tr.size[m]
             blocked = False
-            for tid, f2, _ in frame_feet.get(int(tr.fidx[m]), ()):
-                if tid == tr.tid:
-                    continue
+            for tid, f2, _, v2 in frame_feet.get(int(tr.fidx[m]), ()):
+                if tid == tr.tid or v2 > kin.moving_speed:
+                    continue  # cross traffic passing in front of the line does not make this car a follower
                 rel = f2 - foot
                 along, across = rel @ d, abs(rel @ np.array([-d[1], d[0]]))
                 if 0 < along < 2.5 * size and across < 0.6 * size:
                     blocked = True
                     break
+            front = foot + d * 0.5 * size
+            margin = max(0.75 * size, 40.0)
+            if not (margin < front[0] < self.width - margin and margin < front[1] < self.height - margin):
+                continue  # at the frame border the real head of the queue may be out of view
             if not blocked:
-                front = foot + d * 0.5 * size
                 heads.append([front[0] / self.width, front[1] / self.height,
                               float(np.degrees(np.arctan2(d[1], d[0]))), size / self.width,
                               float(tr.t[m]), self.n_videos, tr.tid])
@@ -205,6 +210,7 @@ class SceneModel:
         out.movements = self.movements + other.movements
         out.zones = {k: (self.zones.get(k) or other.zones.get(k) or []) for k in ZONE_KINDS}
         out.thumb = self.thumb if self.thumb is not None else other.thumb
+        out.background = self.background if self.background is not None else other.background
         return out
 
     # ------------------------------------------------------------------ derived maps
@@ -347,7 +353,7 @@ class SceneModel:
             u = np.array([np.cos(d), np.sin(d)])
             n = np.array([-u[1], u[0]])
             rel = pts - pts[i]
-            member = (~used) & (angle_diff(dirs, dirs[i]) < 30) & (np.abs(rel @ u) < 2.0 * sizes[i]) \
+            member = (~used) & (angle_diff(dirs, dirs[i]) < 30) & (np.abs(rel @ u) < 2.5 * sizes[i]) \
                 & (np.abs(rel @ n) < 6.0 * sizes[i])
             # a stop line is where different vehicles wait in different signal cycles
             vehicles = {(int(v), int(k)) for v, k in heads[member][:, 5:7]}
@@ -355,13 +361,22 @@ class SceneModel:
             if member.sum() < min_heads or len(vehicles) < 3 or len(cycles) < 3:
                 continue
             used |= member
-            along = rel[member] @ u
-            across = rel[member] @ n
-            s0 = np.percentile(along, 80)
-            half = max(np.ptp(across) / 2 + 0.6 * np.median(sizes[member]), sizes[i])
-            mid = pts[i] + u * s0 + n * (across.max() + across.min()) / 2
-            lines.append({"a": mid - n * half, "b": mid + n * half, "dir": float(np.degrees(d)),
-                          "support": int(member.sum())})
+            # the line runs where the first cars of the lanes stop side by side; in an oblique view
+            # that is not perpendicular to the travel direction, so fit it to the heads (PCA)
+            P = pts[member]
+            e = n
+            _, V = np.linalg.eigh(np.cov((P - P.mean(0)).T))
+            axis = V[:, -1]
+            # heads of several lanes line up along the painted line; heads of one lane line up along travel
+            if np.ptp(P @ axis) > 1.2 * np.median(sizes[member]) and abs(float(axis @ u)) < 0.94:
+                e = axis
+            if e @ n < 0:
+                e = -e
+            mid = P.mean(0)
+            proj = (P - mid) @ e
+            pad = 0.6 * np.median(sizes[member])
+            lines.append({"a": mid + e * (proj.min() - pad), "b": mid + e * (proj.max() + pad),
+                          "dir": float(np.degrees(d)), "support": int(member.sum())})
         return lines
 
     def similar_to(self, other: "SceneModel", min_corr: float = 0.6) -> bool:
@@ -411,6 +426,9 @@ class SceneModel:
         if not p.exists():
             return None
         scene = cls.from_json(json.loads(p.read_text()))
+        bg = p.with_name("scene_background.jpg")
+        if bg.exists():
+            scene.background = cv2.imread(str(bg))
         drawn = p.with_name("zones.json")
         if drawn.exists():
             for kind, items in json.loads(drawn.read_text()).items():
@@ -420,6 +438,21 @@ class SceneModel:
 
 
 # ---------------------------------------------------------------------- helpers
+def _merge_runs(tr, rr: list[tuple[int, int]], kin, max_gap: float = 2.0, max_creep: float = 0.6) -> list[tuple[int, int]]:
+    """Join stationary runs of one track separated by a short creep forward (a queue edging up, or
+    detector jitter) into one wait: gaps of at most max_gap seconds and max_creep object sizes."""
+    out: list[tuple[int, int]] = []
+    for s, e in rr:
+        if out:
+            ps, pe = out[-1]
+            if tr.t[s] - tr.t[pe] <= max_gap and \
+                    np.linalg.norm(tr.foot[s] - tr.foot[pe]) <= max_creep * tr.size[pe]:
+                out[-1] = (ps, e)
+                continue
+        out.append((s, e))
+    return out
+
+
 def runs(mask: np.ndarray) -> list[tuple[int, int]]:
     """Inclusive (start, end) index pairs of True runs."""
     mask = np.asarray(mask, bool)

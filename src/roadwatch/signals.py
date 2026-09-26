@@ -95,11 +95,21 @@ class StopLine:
     def half(self) -> float:
         return float(np.linalg.norm(self.b - self.a) / 2)
 
+    def _coords(self, pts: np.ndarray) -> np.ndarray:
+        """(position along the line from its middle, signed distance past it in the travel direction).
+        The line need not be perpendicular to travel: in an oblique view a painted stop line is not."""
+        q = np.asarray(pts, np.float64).reshape(-1, 2) - self.mid
+        v = self.b - self.a
+        e = v / (np.linalg.norm(v) + 1e-9)
+        if abs(float(e @ self.u)) > 0.94:          # degenerate: line within 20 deg of the travel direction
+            e = self.n
+        return np.linalg.solve(np.column_stack([e, self.u]), q.T).T
+
     def along(self, pts: np.ndarray) -> np.ndarray:
-        return (np.asarray(pts).reshape(-1, 2) - self.mid) @ self.u
+        return self._coords(pts)[:, 1]
 
     def across(self, pts: np.ndarray) -> np.ndarray:
-        return (np.asarray(pts).reshape(-1, 2) - self.mid) @ self.n
+        return self._coords(pts)[:, 0]
 
 
 def front_points(tr: Track, line: StopLine) -> np.ndarray:

@@ -24,7 +24,7 @@ from collections import deque
 import cv2
 import numpy as np
 
-from . import budget
+from . import budget, register
 from .config import CFG, WEIGHTS_DIR, Config
 from .constants import MOTORISED, ROAD_USERS
 from .detector import device_kind, get_detector
@@ -59,6 +59,7 @@ class CausalRisk:
         self.raw = 0.0
         self.hold_until = -1.0
         self.scene: SceneModel | None = None
+        self.H: np.ndarray | None = None          # this video's view -> the prior's reference view
         self.scene_checked = False
         self.last_cues: dict = {}
         self.work: tuple[int, int] | None = None   # set from the first analysed frame
@@ -74,6 +75,10 @@ class CausalRisk:
         self.scene_checked = True
         p = self.prior
         if p is None or (p.width, p.height) != (frame.shape[1], frame.shape[0]):
+            return
+        if p.background is not None:     # the camera may be re-aimed: register instead of comparing
+            self.H = register.homography(frame, p.background)
+            self.scene = p if self.H is not None else None
             return
         probe = SceneModel(p.width, p.height, p.cfg)
         probe.thumb = thumbnail(frame)
@@ -100,6 +105,9 @@ class CausalRisk:
                 tstar = -float(rel @ rv) / rv2
                 if not (0.0 < tstar < horizon):
                     continue
+                if self._following(a, b) and not (tstar < 1.0 and float(np.linalg.norm(rv)) >
+                                                  0.5 * max(np.linalg.norm(a.velocity), np.linalg.norm(b.velocity))):
+                    continue  # closing up on the car ahead in the same lane: ordinary traffic
                 dstar = float(np.linalg.norm(rel + rv * tstar) / size)
                 soft = max(soft, float(np.exp(-tstar / 2.5) * np.exp(-dstar / 1.2) * min(1.0, closing / 1.5)))
                 if dstar > 0.9:
@@ -110,6 +118,14 @@ class CausalRisk:
                 if c > best:
                     best, pair = c, (a.tid, b.tid)
         return best, pair, soft
+
+    @staticmethod
+    def _following(a: STrack, b: STrack) -> bool:
+        """Both moving in nearly the same direction (one behind the other, or side by side)."""
+        va, vb = a.velocity, b.velocity
+        if min(np.linalg.norm(va) / a.size, np.linalg.norm(vb) / b.size) < 0.3:
+            return False
+        return angle_diff(np.degrees(np.arctan2(va[1], va[0])), np.degrees(np.arctan2(vb[1], vb[0]))) < 35
 
     def _braking(self, tracks: list[STrack], t: float) -> float:
         best = 0.0
@@ -136,9 +152,13 @@ class CausalRisk:
             if a.group not in MOTORISED or a.speed < 0.8 or a.hits < 6:
                 continue
             foot = np.array([(a.box[0] + a.box[2]) / 2, a.box[3]])
+            ahead = foot + 0.5 * a.velocity
+            if self.H is not None:
+                foot, ahead = register.warp_points(self.H, np.array([foot, ahead]))
             lane, ok = self.scene.lane_direction(foot)
             if ok[0]:
-                heading = np.degrees(np.arctan2(a.velocity[1], a.velocity[0]))
+                v = ahead - foot
+                heading = np.degrees(np.arctan2(v[1], v[0]))
                 if angle_diff(heading, lane[0]) > 130:
                     best = max(best, 0.25)
         return best
@@ -188,8 +208,10 @@ class CausalRisk:
             self._check_scene(frame)
         dets = self.detector([frame], imgsz=self.imgsz)[0]
         self.tracker.update(dets, t)
+        W, H = self.work
         live = [x for x in self.tracker.tracks if x.state == "tracked" and x.t_seen >= t - 1e-6
-                and x.group in ROAD_USERS and x.size >= self.min_px]
+                and x.group in ROAD_USERS and x.size >= self.min_px
+                and x.box[0] > 3 and x.box[1] > 3 and x.box[2] < W - 3 and x.box[3] < H - 3]  # cut-off boxes jitter
         for x in live:
             self.history.setdefault(x.tid, deque(maxlen=24)).append((t, x.speed))
         alive = {x.tid for x in self.tracker.tracks}

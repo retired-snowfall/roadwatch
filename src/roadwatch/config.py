@@ -48,6 +48,8 @@ class TrackerCfg:
     match_iou: float = 0.20           # first-stage minimum IoU
     low_match_iou: float = 0.45       # second-stage (low-score boxes) minimum IoU
     center_gate: float = 1.6          # fallback: centre distance / size (new tracks have no velocity yet)
+    center_gate_static: float = 0.5   # fallback gate for an established track that is not moving
+    young_hits: int = 6               # tracks with fewer hits use the full centre gate
     max_lost: float = 2.5             # s a moving track survives without detections
     max_lost_static: float = 12.0     # s a stationary track survives (occlusion by passing traffic)
     min_hits: int = 3
@@ -82,12 +84,15 @@ class EventCfg:
     acc_min_prior_speed: float = 0.8  # sizes/s before impact for at least one party
     acc_min_decel: float = 1.2        # sizes/s^2 drop around contact
     acc_rest_speed: float = 0.25
+    acc_min_history: float = 2.0      # s a party must be tracked before contact
+    acc_max_jump: float = 0.45        # sizes; larger unexplained box jumps are identity switches
     acc_max_len: float = 20.0
     # near miss
     nm_ttc: float = 2.0               # s, predicted time to closest approach when evasion starts
     nm_min_gap: float = 0.45          # predicted closest approach / size (+0.3 tolerance)
     nm_brake: float = 1.6             # sizes/s^2
     nm_swerve_deg: float = 35.0       # heading change within 1 s
+    nm_follow_gap: float = 0.6        # same-direction pairs must come this close (sizes)
     # wrong way
     ww_angle: float = 125.0           # deg against the lane direction
     ww_min_duration: float = 1.5
@@ -108,6 +113,8 @@ class EventCfg:
     jw_min_duration: float = 1.2
     jw_road_erode: int = 1            # cells
     fy_min_speed: float = 0.5
+    fy_gap: float = 1.5               # pedestrian within this many vehicle sizes (~a lane) of the vehicle
+    fy_ped_speed: float = 0.3         # sizes/s: the pedestrian is walking, not waiting
     # lines and signals
     rl_min_speed: float = 0.8
     sl_min_stop: float = 3.0

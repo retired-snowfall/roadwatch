@@ -100,3 +100,23 @@ def test_risk_time_guard_lowers_rate_only_when_behind():
 
     assert estimator(seconds_left=20.0).sampler.rate < 6.0      # 87 s of video left, 20 s of budget
     assert estimator(seconds_left=500.0).sampler.rate == pytest.approx(6.0)
+
+
+def test_candidate_evidence_is_json_serialisable():
+    from roadwatch.events.base import Candidate
+
+    c = Candidate(1.0, 2.0, "accident", np.float32(0.7), (np.int64(3), 4),
+                  {"closing": np.bool_(True), "a": {"v_pre": np.float64(1.23456), "gap": np.nan}, "k": np.int32(2),
+                   "pts": np.array([1.0, 2.0])})
+    d = json.loads(json.dumps(c.as_json()))
+    assert d["info"] == {"closing": True, "a": {"v_pre": 1.235, "gap": None}, "k": 2, "pts": [1.0, 2.0]}
+
+
+def test_oblique_stop_line_measures_distance_along_travel():
+    from roadwatch.signals import StopLine
+
+    line = StopLine(np.array([0.0, 0.0]), np.array([100.0, 50.0]), 90.0)   # slanted line, traffic moves down
+    assert line.along([[50.0, 25.0]])[0] == pytest.approx(0.0, abs=1e-6)    # on the line
+    assert line.along([[100.0, 60.0]])[0] == pytest.approx(10.0, abs=1e-6)  # 10 px below its right end
+    assert line.along([[0.0, -5.0]])[0] == pytest.approx(-5.0, abs=1e-6)    # before the line
+    assert abs(line.across([[100.0, 50.0]])[0]) == pytest.approx(line.half, abs=1e-6)

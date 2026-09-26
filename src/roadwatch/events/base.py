@@ -22,7 +22,22 @@ class Candidate:
     def as_json(self) -> dict:
         return {"start": round(self.start, 2), "end": round(self.end, 2), "label": self.label,
                 "score": round(float(self.score), 3), "tracks": [int(t) for t in self.tracks],
-                "info": {k: (round(v, 3) if isinstance(v, float) else v) for k, v in self.info.items()}}
+                "info": _plain(self.info)}
+
+
+def _plain(v):
+    """JSON-safe copy of rule evidence (NumPy scalars and arrays, nested dicts, NaN -> None)."""
+    if isinstance(v, dict):
+        return {str(k): _plain(x) for k, x in v.items()}
+    if isinstance(v, (list, tuple, np.ndarray)):
+        return [_plain(x) for x in v]
+    if isinstance(v, (bool, np.bool_)):
+        return bool(v)
+    if isinstance(v, (int, np.integer)):
+        return int(v)
+    if isinstance(v, (float, np.floating)):
+        return None if not np.isfinite(v) else round(float(v), 3)
+    return v
 
 
 @dataclass

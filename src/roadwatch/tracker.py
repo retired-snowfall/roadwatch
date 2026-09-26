@@ -152,9 +152,16 @@ class ByteTracker:
         mc = {c for _, c in matches}
         return matches, [i for i in range(len(tracks)) if i not in mr], [j for j in range(len(boxes)) if j not in mc]
 
-    def _assign_centres(self, tracks: list[STrack], boxes: np.ndarray, groups: np.ndarray):
+    def _assign_centres(self, tracks: list[STrack], boxes: np.ndarray, groups: np.ndarray, t: float):
+        """Centre-distance fallback. Young tracks (velocity still unknown) get the full gate; an
+        established track only reaches as far as its own motion could take it, so a car stopped
+        in a queue cannot hand its ID to the car behind it while it is briefly hidden."""
         if not tracks or len(boxes) == 0:
             return [], list(range(len(tracks))), list(range(len(boxes)))
+        cfg = self.cfg
+        gate = np.array([cfg.center_gate if trk.hits < cfg.young_hits else
+                         min(cfg.center_gate, cfg.center_gate_static + 1.5 * trk.speed * max(t - trk.t_seen, 0.1))
+                         for trk in tracks])
         tc = np.array([t.mean[:2] for t in tracks])
         ts = np.array([t.size for t in tracks])
         bc = np.c_[(boxes[:, 0] + boxes[:, 2]) / 2, (boxes[:, 1] + boxes[:, 3]) / 2]
@@ -164,7 +171,7 @@ class ByteTracker:
         bad = (np.array([t.group for t in tracks])[:, None] != groups[None, :]) | (ratio < 0.6) | (ratio > 1.7)
         d[bad] = 1e6
         rows, cols = linear_sum_assignment(d)
-        matches = [(r, c) for r, c in zip(rows, cols) if d[r, c] < self.cfg.center_gate]
+        matches = [(r, c) for r, c in zip(rows, cols) if d[r, c] < gate[r]]
         mr = {r for r, _ in matches}
         mc = {c for _, c in matches}
         return matches, [i for i in range(len(tracks)) if i not in mr], [j for j in range(len(boxes)) if j not in mc]
@@ -205,7 +212,7 @@ class ByteTracker:
             matched.append(pool[r])
         rest = [pool[i] for i in um_t]
         rest_hi = hi_idx[um_d]
-        m1b, um_t2, um_d2 = self._assign_centres(rest, dets[rest_hi, :4], groups[rest_hi])
+        m1b, um_t2, um_d2 = self._assign_centres(rest, dets[rest_hi, :4], groups[rest_hi], t)
         for r, c in m1b:
             self._apply(rest[r], dets[rest_hi[c]], t)
             matched.append(rest[r])

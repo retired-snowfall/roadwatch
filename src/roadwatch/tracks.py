@@ -103,6 +103,18 @@ class Track:
         w = values[self.window(t0, t1)]
         return float(np.median(w)) if len(w) else default
 
+    def jump(self, t0: float, t1: float) -> float:
+        """Largest frame-to-frame displacement of the raw box not explained by the smoothed velocity,
+        in object sizes. An identity switch between neighbouring vehicles shows up as a jump."""
+        w = self.window(t0, t1)
+        b = self.box[w]
+        if len(b) < 2:
+            return 0.0
+        foot = np.c_[(b[:, 0] + b[:, 2]) / 2, b[:, 3]]
+        dt = np.diff(self.t[w])[:, None]
+        resid = np.diff(foot, axis=0) - self.vel[w][:-1] * dt
+        return float(np.max(np.linalg.norm(resid, axis=1) / self.size[w][:-1]))
+
     def travelled(self, t0: float, t1: float) -> float:
         """Straight-line displacement between t0 and t1, in object sizes."""
         w = self.window(t0, t1)
