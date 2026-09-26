@@ -63,6 +63,7 @@ def main() -> None:
     ap.add_argument("--risk", action="store_true", help="also stream Part B (slow)")
     ap.add_argument("--out", help="write the predictions here")
     ap.add_argument("--report", help="write the official evaluate() report (JSON) here, e.g. web/static/data/dev_scores.json")
+    ap.add_argument("--baseline", help="earlier predictions (JSON) to score on the same labels, stored in the report for comparison")
     args = ap.parse_args()
     logging.basicConfig(level=logging.WARNING)
     os.environ.setdefault("ROADWATCH_CACHE", str(ROOT / ".cache" / "perception"))
@@ -85,6 +86,11 @@ def main() -> None:
     if args.report:
         rep["confusion"] = confusion(gt, pred)
         rep["overrides"] = args.set
+        if args.baseline:
+            base = json.loads(Path(args.baseline).read_text())
+            base_a = evaluate.evaluate(gt, base)["part_a"]
+            rep["baseline"] = {"source": Path(args.baseline).name, "score_a": base_a["score_a"],
+                               "per_class": {c: base_a["per_class"][c]["f1_mean"] for c in base_a["classes"]}}
         Path(args.report).write_text(json.dumps(rep, indent=1))
     print("\nbest-overlapping prediction per ground-truth event (rows = truth):")
     for lab, row in sorted(confusion(gt, pred).items()):

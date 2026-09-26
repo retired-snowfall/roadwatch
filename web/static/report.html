@@ -22,11 +22,39 @@
     <strong>Part B</strong> runs its own detector-plus-tracker strictly causally and turns time-to-collision, hard braking,
     wrong-way motion and contact into a risk score. Details on the <a href="approach.html">approach page</a>.</p>
 
-  <h2>Scores on our dev labels</h2>
-  <p class="section-intro">Computed with the organisers' <code>evaluate.py</code>, unchanged, against our own labels of the
-    sample videos (<code>tools/evaluate_dev.py --report</code>). The samples also served for calibration, so these numbers
-    are optimistic for the hidden test set.</p>
-  <div id="scores"><div class="empty">Dev labels are being written; scores appear here once they are complete.</div></div>
+  <h2>Scores on the team's labels</h2>
+  <p class="section-intro">The team labelled all four sample videos (59 events in six classes, after merging overlapping
+    events of one class as the official format requires; <code>labels/team_labels.txt</code>). The organisers told us the
+    test videos come from the same junction on the same day, so what the labels teach about this place carries over.
+    Scores come from the organisers' <code>evaluate.py</code>, unchanged (<code>tools/evaluate_dev.py --report</code>);
+    "before" is the pipeline as it was when the labels arrived.</p>
+  <div id="scores"><div class="empty">Scores appear here once the dev report is built.</div></div>
+  <h3>What the labels changed</h3>
+  <ul>
+    <li><strong>stopped_vehicle:</strong> the labelled "stopped vehicle" is a car parked all day at the corner kerb, right
+      before a crosswalk, and cut off by the frame border. Rules now count any stop in a drawn no-stopping zone (however
+      routine the spot, border or not) and join a parked car's track across the gaps when passing traffic hides it.</li>
+    <li><strong>jaywalking:</strong> people cross diagonally between the two crosswalks on the left, a step beside the
+      stripes, and the labels cover the whole crossing (5–18 s). The margin around a crosswalk shrank from two body widths
+      to 0.4, and the event now spans the walk on the carriageway, up to 4 s either side of the off-crosswalk part.</li>
+    <li><strong>failure_to_yield:</strong> labels start as the car approaches the crossing, about 1.5 s before it reaches
+      the stripes; our events now do too.</li>
+    <li><strong>stop_line:</strong> labelled when vehicles stand past the stop line, stuck on a crosswalk in a jam. A new
+      rule reports the spell while vehicles that drove in stand on a crossing for 20 s or more (our old "congestion"
+      detection in C3905 was this event).</li>
+    <li><strong>Classes not reported:</strong> the labels have no near misses and no congestion, and a class we report
+      that is absent from the test set costs a whole zero in the macro mean; both detectors still run but are not
+      reported.</li>
+  </ul>
+  <h3>Is it overfitted? Leave one video out</h3>
+  <p class="section-intro">For each video we chose the thresholds on the other three and scored the held-out one. The
+    same values win in almost every fold, and the pooled held-out F1 is close to the in-sample value.</p>
+  <div class="card table-wrap"><table>
+    <thead><tr><th>Class</th><th>Thresholds searched</th><th class="num">Held-out F1 (pooled)</th><th class="num">All four videos</th></tr></thead>
+    <tbody>
+      <tr><td>jaywalking</td><td>crosswalk margin 0.25–2 body widths × extension 0–8 s</td><td class="num">0.295</td><td class="num">0.309</td></tr>
+      <tr><td>failure_to_yield</td><td>lead 0–2 s × tail 0–0.5 s</td><td class="num">0.316</td><td class="num">0.316</td></tr>
+    </tbody></table></div>
 
   <h2>Error analysis: the real junction</h2>
   <p class="section-intro">Our rules were first tuned on short public clips of other roads. On the organisers' camera
@@ -132,22 +160,25 @@
   const $ = (id) => document.getElementById(id);
   getJSON("data/dev_scores.json").then((rep) => {
     const a = rep.part_a, b = rep.part_b;
+    const base = rep.baseline;
     const rows = a.classes.map((c) => {
       const pc = a.per_class[c];
       return el("tr", {}, el("td", {}, el("span", { class: `swatch fam-${CLASSES[c]?.family}` }), className(c)),
+        ...(base ? [el("td", { class: "num muted" }, (base.per_class[c] ?? 0).toFixed(2))] : []),
         ...["0.3", "0.5", "0.7"].map((t) => el("td", { class: "num" }, pc[t].f1.toFixed(2))),
-        el("td", { class: "num" }, pc.f1_mean.toFixed(2)),
+        el("td", { class: "num" }, el("strong", {}, pc.f1_mean.toFixed(2))),
         el("td", { class: "num" }, `${pc["0.5"].tp}/${pc["0.5"].fp}/${pc["0.5"].fn}`));
     });
     $("scores").replaceChildren(
       el("div", { class: "grid grid-4" },
-        el("div", { class: "card stat" }, el("div", { class: "label" }, "Score A (macro F1)"), el("div", { class: "value" }, a.score_a.toFixed(3))),
+        el("div", { class: "card stat" }, el("div", { class: "label" }, "Score A (macro F1)"), el("div", { class: "value" }, a.score_a.toFixed(3)),
+          ...(base ? [el("div", { class: "note" }, `before: ${base.score_a.toFixed(3)}`)] : [])),
         el("div", { class: "card stat" }, el("div", { class: "label" }, "Score B"), el("div", { class: "value" }, b ? b.score_b.toFixed(3) : "–"),
           el("div", { class: "note" }, b ? `AP ${b.ap.toFixed(2)} · alarm F1 ${b.f1_alarm.toFixed(2)} · mTTA ${b.mtta_sec.toFixed(1)} s` : "no accidents in our labels")),
         el("div", { class: "card stat" }, el("div", { class: "label" }, "Model score M"), el("div", { class: "value" }, rep.model_score.toFixed(3))),
         el("div", { class: "card stat" }, el("div", { class: "label" }, "Class-agnostic F1 @0.5"), el("div", { class: "value" }, a.class_agnostic["0.5"].f1.toFixed(2)))),
       el("div", { class: "card table-wrap", style: "margin-top:16px" }, el("table", {},
-        el("thead", {}, el("tr", {}, el("th", {}, "Class"), el("th", { class: "num" }, "F1@0.3"), el("th", { class: "num" }, "F1@0.5"),
+        el("thead", {}, el("tr", {}, el("th", {}, "Class"), ...(base ? [el("th", { class: "num" }, "Before (mean)")] : []), el("th", { class: "num" }, "F1@0.3"), el("th", { class: "num" }, "F1@0.5"),
           el("th", { class: "num" }, "F1@0.7"), el("th", { class: "num" }, "Mean"), el("th", { class: "num" }, "TP/FP/FN @0.5"))),
         el("tbody", {}, rows))));
   }).catch(() => {});
