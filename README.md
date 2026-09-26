@@ -77,6 +77,25 @@ brought the four samples from 93 to 14 detections; the website's report page has
 Two sources that fired only on artefacts here are kept but off by default: statistically rare movements as illegal
 turns (`EventCfg.it_rare_movements`) and background-difference obstacles (`EventCfg.ob_static_blobs`).
 
+### Tuned on the team's labels
+
+The team labelled the four samples (`labels/team_labels.txt`, 59 events in six classes once same-class overlaps
+are merged; `tools/labels_from_text.py` writes the official format to `labels/dev_labels.json`). The organisers
+told us the test videos come from the same junction on the same day, so the labels are used to learn this place:
+
+| Class | Before | After | What the labels showed |
+|---|---|---|---|
+| stopped_vehicle | 0.00 | 0.82 | A car parked all day at the corner kerb before a crosswalk, cut off by the frame border: stops in a drawn `no_stopping` zone count, joined across identity switches |
+| jaywalking | 0.03 | 0.31 | People cross a step beside the stripes and diagonally between crosswalks; the event covers the whole walk on the road |
+| failure_to_yield | 0.04 | 0.32 | Labels start as the car approaches the crossing (1.5 s lead) |
+| stop_line | 0.00 | 0.33 | Vehicles stuck on a crosswalk past the stop line in a jam (`lines.detect_crosswalk_blocking`) |
+| illegal_turn, solid_line_crossing | 0.00 | 0.00 | Need the junction's solid lines and turn rules drawn in `weights/zones.json` (scene editor) |
+| **Score A** | **0.009** | **0.296** | official `evaluate.py`; near_miss and congestion are no longer reported (absent from the labels) |
+
+Thresholds chosen on three videos score about the same on the held-out fourth (jaywalking 0.295 vs 0.309,
+failure_to_yield 0.316 vs 0.316). Reproduce: `python tools/evaluate_dev.py --videos samples/1080p --labels
+labels/dev_labels.json --baseline labels/baseline_predictions.json`.
+
 ### Time budget
 
 Limit: 3 × video duration for Part A + Part B together; `run_submission.py` scores a video that runs over as
@@ -116,8 +135,10 @@ python tools/evaluate_dev.py --videos samples --labels labels/dev_labels.json \
 
 `tools/calibrate.py` uses the first video (or `--reference NAME`) as the reference view and registers the others to
 it; `weights/scene_background.jpg` is that view's background. Road-layout zones that cannot be learned reliably
-(crosswalks, solid lines, prohibited turns, where U-turns are allowed) are drawn once on it in the website's scene
-editor (`web/static/scene.html`) and saved as `weights/zones.json`; the junction's three crosswalks are traced there.
+(crosswalks, solid lines, prohibited turns, no-stopping areas, where U-turns are allowed) are drawn once in the
+website's scene editor (`web/static/scene.html`, on `weights/scene_frame.jpg`, a sharp traffic-free frame of the
+reference view) and saved as `weights/zones.json`; the junction's three crosswalks and the no-stopping corner are
+traced there.
 The organisers' files are 4K 10-bit 4:2:2 (≈140 Mbit/s); for development we used 1080p H.264 copies
 (`ffmpeg -i IN -an -vf scale=1920:1080 -c:v libx264 -crf 18 OUT`), which give the same geometry because the
 pipeline works at a 1920-px working width either way.
