@@ -4,18 +4,28 @@
   "C3896.MP4": {
    "events": [
     [
-     94.03,
-     98.03,
-     "near_miss"
+     0.0,
+     340.34,
+     "stopped_vehicle"
     ],
     [
-     156.42,
+     111.35,
+     113.35,
+     "solid_line_crossing"
+    ],
+    [
+     154.92,
      158.83,
      "failure_to_yield"
     ],
     [
-     268.2,
-     272.01,
+     236.04,
+     245.21,
+     "jaywalking"
+    ],
+    [
+     298.5,
+     328.0,
      "stop_line"
     ]
    ],
@@ -40825,8 +40835,43 @@
   "C3897.MP4": {
    "events": [
     [
-     84.02,
-     85.22,
+     0.0,
+     317.817,
+     "stopped_vehicle"
+    ],
+    [
+     1.0,
+     6.81,
+     "jaywalking"
+    ],
+    [
+     10.21,
+     17.62,
+     "jaywalking"
+    ],
+    [
+     51.85,
+     53.85,
+     "solid_line_crossing"
+    ],
+    [
+     78.21,
+     87.42,
+     "jaywalking"
+    ],
+    [
+     103.34,
+     105.44,
+     "failure_to_yield"
+    ],
+    [
+     134.2,
+     182.45,
+     "solid_line_crossing"
+    ],
+    [
+     145.61,
+     154.62,
      "jaywalking"
     ],
     [
@@ -40835,14 +40880,24 @@
      "jaywalking"
     ],
     [
-     236.04,
-     237.2,
+     234.2,
+     239.64,
+     "jaywalking"
+    ],
+    [
+     234.54,
+     241.44,
      "failure_to_yield"
     ],
     [
-     238.84,
-     241.44,
-     "failure_to_yield"
+     291.62,
+     300.23,
+     "jaywalking"
+    ],
+    [
+     302.04,
+     313.05,
+     "jaywalking"
     ]
    ],
    "risk": [
@@ -78951,17 +79006,67 @@
   "C3902.MP4": {
    "events": [
     [
-     84.42,
-     92.03,
+     0.0,
+     317.817,
+     "stopped_vehicle"
+    ],
+    [
+     24.53,
+     26.63,
+     "failure_to_yield"
+    ],
+    [
+     45.75,
+     48.01,
+     "failure_to_yield"
+    ],
+    [
+     81.41,
+     102.63,
      "jaywalking"
     ],
     [
-     174.64,
+     106.04,
+     109.24,
+     "jaywalking"
+    ],
+    [
+     173.14,
      175.44,
      "failure_to_yield"
     ],
     [
-     285.62,
+     174.44,
+     188.05,
+     "jaywalking"
+    ],
+    [
+     183.55,
+     185.65,
+     "failure_to_yield"
+    ],
+    [
+     232.43,
+     243.21,
+     "jaywalking"
+    ],
+    [
+     257.22,
+     265.23,
+     "jaywalking"
+    ],
+    [
+     269.61,
+     275.61,
+     "jaywalking"
+    ],
+    [
+     282.02,
+     283.22,
+     "jaywalking"
+    ],
+    [
+     284.12,
      287.02,
      "failure_to_yield"
     ]
@@ -117072,24 +117177,49 @@
   "C3905.MP4": {
    "events": [
     [
-     10.81,
-     28.83,
+     0.0,
+     127.627,
      "stopped_vehicle"
     ],
     [
-     74.01,
-     116.25,
-     "congestion"
+     9.61,
+     17.02,
+     "jaywalking"
     ],
     [
-     101.23,
+     37.74,
+     40.01,
+     "failure_to_yield"
+    ],
+    [
+     71.61,
+     73.61,
+     "solid_line_crossing"
+    ],
+    [
+     77.5,
+     116.0,
+     "stop_line"
+    ],
+    [
+     99.73,
      102.44,
      "failure_to_yield"
     ],
     [
-     108.04,
+     106.54,
      108.84,
      "failure_to_yield"
+    ],
+    [
+     108.05,
+     115.25,
+     "jaywalking"
+    ],
+    [
+     120.65,
+     122.65,
+     "solid_line_crossing"
     ]
    ],
    "risk": [
@@ -132401,33 +132531,33 @@
    "duration": 340.34,
    "budget_sec": 1021.0,
    "errors": [],
-   "part_a_sec": 9.1,
-   "part_b_sec": 94.8,
-   "total_sec": 104.0
+   "part_a_sec": 17.6,
+   "part_b_sec": 146.8,
+   "total_sec": 164.5
   },
   "C3897.MP4": {
    "duration": 317.82,
    "budget_sec": 953.5,
    "errors": [],
-   "part_a_sec": 8.5,
-   "part_b_sec": 91.8,
-   "total_sec": 100.3
+   "part_a_sec": 15.1,
+   "part_b_sec": 136.4,
+   "total_sec": 151.4
   },
   "C3902.MP4": {
    "duration": 317.82,
    "budget_sec": 953.5,
    "errors": [],
-   "part_a_sec": 9.0,
-   "part_b_sec": 90.1,
-   "total_sec": 99.1
+   "part_a_sec": 16.5,
+   "part_b_sec": 138.5,
+   "total_sec": 155.0
   },
   "C3905.MP4": {
    "duration": 127.63,
    "budget_sec": 382.9,
    "errors": [],
-   "part_a_sec": 4.5,
-   "part_b_sec": 39.6,
-   "total_sec": 44.2
+   "part_a_sec": 6.2,
+   "part_b_sec": 57.2,
+   "total_sec": 63.5
   }
  }
 }

@@ -80,22 +80,25 @@ turns (`EventCfg.it_rare_movements`) and background-difference obstacles (`Event
 
 ### Tuned on the team's labels
 
-The team labelled the four samples (`labels/team_labels.txt`, 59 events in six classes once same-class overlaps
-are merged; `tools/labels_from_text.py` writes the official format to `labels/dev_labels.json`). The organisers
-told us the test videos come from the same junction on the same day, so the labels are used to learn this place:
+The team labelled the four samples (`labels/team_labels.txt`; `tools/labels_from_text.py` writes the official
+format to `labels/dev_labels.json`, merging overlapping events of one class). The organisers told us the test videos
+come from the same junction on the same day, so the labels are used to learn this place. A team member then
+visited the junction: U-turns are allowed there, so the U-turns first labelled as illegal turns were dropped, and
+one of them (a car pushing through pedestrians on a crossing) became failure_to_yield. That leaves 51 events in
+five classes:
 
 | Class | Before | After | What the labels showed |
 |---|---|---|---|
 | stopped_vehicle | 0.00 | 0.82 | A car parked all day at the corner kerb before a crosswalk, cut off by the frame border: stops in a drawn `no_stopping` zone count, joined across identity switches |
+| stop_line | 0.00 | 0.40 | Vehicles stuck on a crosswalk past the stop line in a jam (`lines.detect_crosswalk_blocking`); stop line drawn by the team |
 | jaywalking | 0.03 | 0.31 | People cross a step beside the stripes and diagonally between crosswalks; the event covers the whole walk on the road |
-| failure_to_yield | 0.04 | 0.32 | Labels start as the car approaches the crossing (1.5 s lead) |
-| stop_line | 0.00 | 0.33 | Vehicles stuck on a crosswalk past the stop line in a jam (`lines.detect_crosswalk_blocking`) |
-| illegal_turn, solid_line_crossing | 0.00 | 0.00 | Need the junction's solid lines and turn rules drawn in `weights/zones.json` (scene editor) |
-| **Score A** | **0.009** | **0.296** | official `evaluate.py`; near_miss and congestion are no longer reported (absent from the labels) |
+| failure_to_yield | 0.04 | 0.30 | Labels start as the car approaches the crossing (1.5 s lead) |
+| solid_line_crossing | 0.00 | 0.20 | Four solid lane lines drawn by the team; crossings judged from the box centre with a dead band |
+| **Score A** | **0.010** | **0.404** | official `evaluate.py`; near_miss and congestion are no longer reported (absent from the labels) |
 
 Thresholds chosen on three videos score about the same on the held-out fourth (jaywalking 0.295 vs 0.309,
-failure_to_yield 0.316 vs 0.316). Reproduce: `python tools/evaluate_dev.py --videos samples/1080p --labels
-labels/dev_labels.json --baseline labels/baseline_predictions.json`.
+failure_to_yield 0.316 vs 0.316 before the relabelling). Reproduce: `python tools/evaluate_dev.py --videos
+samples/1080p --labels labels/dev_labels.json --baseline labels/baseline_predictions.json`.
 
 ### Time budget
 

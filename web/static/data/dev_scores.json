@@ -1,10 +1,9 @@
 {
- "model_score": 0.2954801185438755,
+ "model_score": 0.40396726712365166,
  "part_a": {
-  "score_a": 0.2954801185438755,
+  "score_a": 0.40396726712365166,
   "classes": [
    "failure_to_yield",
-   "illegal_turn",
    "jaywalking",
    "solid_line_crossing",
    "stop_line",
@@ -15,55 +14,28 @@
     "0.3": {
      "tp": 3,
      "fp": 8,
-     "fn": 5,
+     "fn": 6,
      "precision": 0.2727272727272727,
-     "recall": 0.375,
-     "f1": 0.3157894736842105
+     "recall": 0.3333333333333333,
+     "f1": 0.3
     },
     "0.5": {
      "tp": 3,
      "fp": 8,
-     "fn": 5,
+     "fn": 6,
      "precision": 0.2727272727272727,
-     "recall": 0.375,
-     "f1": 0.3157894736842105
+     "recall": 0.3333333333333333,
+     "f1": 0.3
     },
     "0.7": {
      "tp": 3,
      "fp": 8,
-     "fn": 5,
+     "fn": 6,
      "precision": 0.2727272727272727,
-     "recall": 0.375,
-     "f1": 0.3157894736842105
+     "recall": 0.3333333333333333,
+     "f1": 0.3
     },
-    "f1_mean": 0.3157894736842105
-   },
-   "illegal_turn": {
-    "0.3": {
-     "tp": 0,
-     "fp": 0,
-     "fn": 9,
-     "precision": 0.0,
-     "recall": 0.0,
-     "f1": 0.0
-    },
-    "0.5": {
-     "tp": 0,
-     "fp": 0,
-     "fn": 9,
-     "precision": 0.0,
-     "recall": 0.0,
-     "f1": 0.0
-    },
-    "0.7": {
-     "tp": 0,
-     "fp": 0,
-     "fn": 9,
-     "precision": 0.0,
-     "recall": 0.0,
-     "f1": 0.0
-    },
-    "f1_mean": 0.0
+    "f1_mean": 0.3
    },
    "jaywalking": {
     "0.3": {
@@ -94,57 +66,57 @@
    },
    "solid_line_crossing": {
     "0.3": {
-     "tp": 0,
-     "fp": 0,
-     "fn": 12,
-     "precision": 0.0,
-     "recall": 0.0,
-     "f1": 0.0
+     "tp": 2,
+     "fp": 3,
+     "fn": 10,
+     "precision": 0.4,
+     "recall": 0.16666666666666666,
+     "f1": 0.23529411764705882
     },
     "0.5": {
-     "tp": 0,
-     "fp": 0,
-     "fn": 12,
-     "precision": 0.0,
-     "recall": 0.0,
-     "f1": 0.0
+     "tp": 2,
+     "fp": 3,
+     "fn": 10,
+     "precision": 0.4,
+     "recall": 0.16666666666666666,
+     "f1": 0.23529411764705882
     },
     "0.7": {
-     "tp": 0,
-     "fp": 0,
-     "fn": 12,
-     "precision": 0.0,
-     "recall": 0.0,
-     "f1": 0.0
+     "tp": 1,
+     "fp": 4,
+     "fn": 11,
+     "precision": 0.2,
+     "recall": 0.08333333333333333,
+     "f1": 0.11764705882352941
     },
-    "f1_mean": 0.0
+    "f1_mean": 0.19607843137254902
    },
    "stop_line": {
     "0.3": {
      "tp": 1,
-     "fp": 2,
+     "fp": 1,
      "fn": 2,
-     "precision": 0.3333333333333333,
+     "precision": 0.5,
      "recall": 0.3333333333333333,
-     "f1": 0.3333333333333333
+     "f1": 0.4
     },
     "0.5": {
      "tp": 1,
-     "fp": 2,
+     "fp": 1,
      "fn": 2,
-     "precision": 0.3333333333333333,
+     "precision": 0.5,
      "recall": 0.3333333333333333,
-     "f1": 0.3333333333333333
+     "f1": 0.4
     },
     "0.7": {
      "tp": 1,
-     "fp": 2,
+     "fp": 1,
      "fn": 2,
-     "precision": 0.3333333333333333,
+     "precision": 0.5,
      "recall": 0.3333333333333333,
-     "f1": 0.3333333333333333
+     "f1": 0.4
     },
-    "f1_mean": 0.3333333333333333
+    "f1_mean": 0.4000000000000001
    },
    "stopped_vehicle": {
     "0.3": {
@@ -176,76 +148,74 @@
   },
   "micro": {
    "0.3": {
-    "tp": 19,
-    "fp": 18,
-    "fn": 40,
-    "precision": 0.5135135135135135,
-    "recall": 0.3220338983050847,
-    "f1": 0.3958333333333333
+    "tp": 21,
+    "fp": 20,
+    "fn": 30,
+    "precision": 0.5121951219512195,
+    "recall": 0.4117647058823529,
+    "f1": 0.4565217391304348
    },
    "0.5": {
-    "tp": 13,
-    "fp": 24,
-    "fn": 46,
-    "precision": 0.35135135135135137,
-    "recall": 0.22033898305084745,
-    "f1": 0.2708333333333333
+    "tp": 15,
+    "fp": 26,
+    "fn": 36,
+    "precision": 0.36585365853658536,
+    "recall": 0.29411764705882354,
+    "f1": 0.32608695652173914
    },
    "0.7": {
-    "tp": 10,
-    "fp": 27,
-    "fn": 49,
-    "precision": 0.2702702702702703,
-    "recall": 0.1694915254237288,
-    "f1": 0.20833333333333334
+    "tp": 11,
+    "fp": 30,
+    "fn": 40,
+    "precision": 0.2682926829268293,
+    "recall": 0.21568627450980393,
+    "f1": 0.23913043478260873
    }
   },
   "class_agnostic": {
    "0.3": {
-    "tp": 21,
-    "fp": 16,
-    "fn": 38,
-    "precision": 0.5675675675675675,
-    "recall": 0.3559322033898305,
-    "f1": 0.4375
+    "tp": 22,
+    "fp": 19,
+    "fn": 29,
+    "precision": 0.5365853658536586,
+    "recall": 0.43137254901960786,
+    "f1": 0.47826086956521746
    },
    "0.5": {
-    "tp": 15,
-    "fp": 22,
-    "fn": 44,
-    "precision": 0.40540540540540543,
-    "recall": 0.2542372881355932,
-    "f1": 0.31249999999999994
+    "tp": 16,
+    "fp": 25,
+    "fn": 35,
+    "precision": 0.3902439024390244,
+    "recall": 0.3137254901960784,
+    "f1": 0.34782608695652173
    },
    "0.7": {
-    "tp": 10,
-    "fp": 27,
-    "fn": 49,
-    "precision": 0.2702702702702703,
-    "recall": 0.1694915254237288,
-    "f1": 0.20833333333333334
+    "tp": 11,
+    "fp": 30,
+    "fn": 40,
+    "precision": 0.2682926829268293,
+    "recall": 0.21568627450980393,
+    "f1": 0.23913043478260873
    }
   },
   "per_video": [
    {
     "video": "C3896.MP4",
-    "gt": 13,
+    "gt": 9,
     "pred": 5,
     "failure_to_yield": "1/0/1",
-    "illegal_turn": "0/0/4",
     "jaywalking": "0/1/2",
-    "solid_line_crossing": "0/0/3",
-    "stop_line": "0/2/1",
+    "solid_line_crossing": "0/1/3",
+    "stop_line": "0/1/1",
     "stopped_vehicle": "1/0/0"
    },
    {
     "video": "C3897.MP4",
-    "gt": 23,
-    "pred": 11,
+    "gt": 21,
+    "pred": 13,
     "failure_to_yield": "0/2/2",
-    "illegal_turn": "0/0/2",
     "jaywalking": "2/6/8",
-    "solid_line_crossing": "0/0/6",
+    "solid_line_crossing": "2/0/4",
     "stop_line": "0/0/1",
     "stopped_vehicle": "1/0/1"
    },
@@ -254,7 +224,6 @@
     "gt": 13,
     "pred": 14,
     "failure_to_yield": "1/4/1",
-    "illegal_turn": "0/0/0",
     "jaywalking": "2/6/5",
     "solid_line_crossing": "0/0/3",
     "stop_line": "0/0/0",
@@ -262,12 +231,11 @@
    },
    {
     "video": "C3905.MP4",
-    "gt": 10,
-    "pred": 7,
-    "failure_to_yield": "1/2/1",
-    "illegal_turn": "0/0/3",
+    "gt": 8,
+    "pred": 9,
+    "failure_to_yield": "1/2/2",
     "jaywalking": "1/1/2",
-    "solid_line_crossing": "0/0/0",
+    "solid_line_crossing": "0/2/0",
     "stop_line": "1/0/0",
     "stopped_vehicle": "1/0/0"
    }
@@ -282,25 +250,21 @@
    "stopped_vehicle": 4,
    "jaywalking": 1
   },
-  "illegal_turn": {
-   "stopped_vehicle": 6,
-   "stop_line": 2,
-   "failure_to_yield": 1
-  },
   "stop_line": {
    "stopped_vehicle": 1,
    "jaywalking": 1,
    "stop_line": 1
   },
   "solid_line_crossing": {
-   "stopped_vehicle": 9,
-   "jaywalking": 3
+   "stopped_vehicle": 8,
+   "solid_line_crossing": 2,
+   "jaywalking": 2
   },
   "failure_to_yield": {
    "failure_to_yield": 3,
    "stopped_vehicle": 3,
    "jaywalking": 1,
-   "stop_line": 1
+   "stop_line": 2
   },
   "jaywalking": {
    "stopped_vehicle": 8,
@@ -311,11 +275,10 @@
  "overrides": [],
  "baseline": {
   "source": "baseline_predictions.json",
-  "score_a": 0.008888888888888889,
+  "score_a": 0.009761904761904762,
   "per_class": {
    "congestion": 0.0,
-   "failure_to_yield": 0.044444444444444446,
-   "illegal_turn": 0.0,
+   "failure_to_yield": 0.041666666666666664,
    "jaywalking": 0.02666666666666667,
    "near_miss": 0.0,
    "solid_line_crossing": 0.0,

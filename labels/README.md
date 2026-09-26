@@ -1,5 +1,14 @@
 # Dev labels
 
+`team_labels.txt` is the team's labelling of the four sample videos in plain text ("m:ss - m:ss class" under each
+video name); `python tools/labels_from_text.py labels/team_labels.txt --videos samples/1080p` turns it into
+`dev_labels.json`, merging overlapping events of one class as the official format requires.
+
+A team member visited the junction afterwards: **U-turns are allowed there**, so the U-turns first labelled as
+illegal turns were removed, except one (C3905, 1:34): a car that pushed through pedestrians on a crossing
+and then drove onto the pavement, relabelled as failure_to_yield (driving on the pavement has no class).
+There are no solid lines on the far carriageway (the next junction is about a kilometre away).
+
 `dev_labels.json` holds our own annotations of the organisers' sample videos, in the official ground-truth format:
 
 ```json

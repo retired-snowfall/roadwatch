@@ -9,24 +9,9 @@
     "stopped_vehicle"
    ],
    [
-    40.0,
-    45.0,
-    "illegal_turn"
-   ],
-   [
-    49.0,
-    56.0,
-    "illegal_turn"
-   ],
-   [
     63.0,
     111.0,
     "stop_line"
-   ],
-   [
-    94.0,
-    100.0,
-    "illegal_turn"
    ],
    [
     130.0,
@@ -47,11 +32,6 @@
     179.0,
     180.0,
     "failure_to_yield"
-   ],
-   [
-    185.0,
-    189.0,
-    "illegal_turn"
    ],
    [
     240.0,
@@ -93,11 +73,6 @@
     37.0,
     45.0,
     "jaywalking"
-   ],
-   [
-    45.0,
-    58.0,
-    "illegal_turn"
    ],
    [
     52.0,
@@ -143,11 +118,6 @@
     151.0,
     160.0,
     "jaywalking"
-   ],
-   [
-    176.0,
-    181.0,
-    "illegal_turn"
    ],
    [
     194.0,
@@ -297,19 +267,9 @@
     "failure_to_yield"
    ],
    [
-    81.0,
-    84.0,
-    "illegal_turn"
-   ],
-   [
     94.0,
     98.0,
-    "illegal_turn"
-   ],
-   [
-    99.0,
-    102.0,
-    "illegal_turn"
+    "failure_to_yield"
    ],
    [
     104.0,

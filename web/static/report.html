@@ -23,11 +23,13 @@
     wrong-way motion and contact into a risk score. Details on the <a href="approach.html">approach page</a>.</p>
 
   <h2>Scores on the team's labels</h2>
-  <p class="section-intro">The team labelled all four sample videos (59 events in six classes, after merging overlapping
-    events of one class as the official format requires; <code>labels/team_labels.txt</code>). The organisers told us the
-    test videos come from the same junction on the same day, so what the labels teach about this place carries over.
-    Scores come from the organisers' <code>evaluate.py</code>, unchanged (<code>tools/evaluate_dev.py --report</code>);
-    "before" is the pipeline as it was when the labels arrived.</p>
+  <p class="section-intro">The team labelled all four sample videos (<code>labels/team_labels.txt</code>). The organisers
+    told us the test videos come from the same junction on the same day, so what the labels teach about this place
+    carries over. A team member then <strong>visited the junction</strong>: U-turns are allowed there, so the U-turns first
+    labelled as illegal turns were dropped, and one of them (a car pushing through pedestrians on a crossing) became
+    failure_to_yield. That leaves 51 events in five classes, after merging overlapping events of one class as the
+    official format requires. Scores come from the organisers' <code>evaluate.py</code>, unchanged
+    (<code>tools/evaluate_dev.py --report</code>); "before" is the pipeline as it was when the labels arrived.</p>
   <div id="scores"><div class="empty">Scores appear here once the dev report is built.</div></div>
   <h3>What the labels changed</h3>
   <ul>
@@ -42,6 +44,12 @@
     <li><strong>stop_line:</strong> labelled when vehicles stand past the stop line, stuck on a crosswalk in a jam. A new
       rule reports the spell while vehicles that drove in stand on a crossing for 20 s or more (our old "congestion"
       detection in C3905 was this event).</li>
+    <li><strong>solid_line_crossing:</strong> the team drew the four solid lane lines of the main approach and its stop
+      line in the scene editor. In this oblique view a box's bottom corners straddle the neighbouring lines even when a
+      car drives straight, so crossings are judged from the box centre with a dead band, and a car caught astride the
+      line by the signal stays in violation while it stands there.</li>
+    <li><strong>U-turns:</strong> allowed at this junction (checked on site), so the whole view is marked
+      <code>u_turn_allowed</code> and no U-turn is ever reported as illegal here.</li>
     <li><strong>Classes not reported:</strong> the labels have no near misses and no congestion, and a class we report
       that is absent from the test set costs a whole zero in the macro mean; both detectors still run but are not
       reported.</li>
