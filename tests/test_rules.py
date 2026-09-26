@@ -141,9 +141,11 @@ def test_red_light(scene, n_waiting, expected):
 def test_finalize_merges_and_clips():
     from roadwatch.events.base import Candidate
     cands = [Candidate(1.0, 3.0, "jaywalking"), Candidate(3.5, 6.0, "jaywalking"),
-             Candidate(58.0, 70.0, "congestion"), Candidate(10.0, 10.3, "wrong_way")]
+             Candidate(58.0, 70.0, "stopped_vehicle"), Candidate(10.0, 10.3, "wrong_way"),
+             Candidate(20.0, 30.0, "congestion")]
     out = finalize(cands, 60.0, merge_gap=1.0, min_duration=0.8, enabled=CFG.enabled)
-    assert out == [[1.0, 6.0, "jaywalking"], [58.0, 60.0, "congestion"]]
+    # merged, clipped to the video, blips dropped, classes we do not report left out
+    assert out == [[1.0, 6.0, "jaywalking"], [58.0, 60.0, "stopped_vehicle"]]
 
 
 def test_parked_cars_create_no_stop_lines_or_violations(scene):
@@ -198,3 +200,36 @@ def test_failure_to_yield_needs_a_pedestrian_next_to_the_car(scene, ped_x, y_end
     walker = make_track(2, [(0, ped_x, 690), (8, ped_x, y_end)], group="person", size=(30, 80), cls=0)
     cands = pedestrian.detect_failure_to_yield(context([car, walker], sc), CFG.events)
     assert (labels(cands) == ["failure_to_yield"]) is expected, [c.as_json() for c in cands]
+
+
+def test_parked_car_in_a_no_stopping_zone_spans_identity_switches(scene):
+    # a car cut off by the right frame border stands in a drawn no-stopping zone the whole minute;
+    # passing traffic hides it for 5 s and it comes back under a new track id
+    saved = scene.zones.get("no_stopping", [])
+    scene.zones["no_stopping"] = [[[0.9, 0.1], [1.0, 0.1], [1.0, 0.3], [0.9, 0.3]]]
+    try:
+        first = make_track(1, [(0, 1880, 250), (25, 1880, 250)])
+        second = make_track(2, [(30, 1880, 252), (60, 1880, 252)])
+        assert first.edge.all()
+        cands = stationary.detect(context([first, second], scene), CFG.events, CFG.kin)
+        sv = [c for c in cands if c.label == "stopped_vehicle"]
+        assert len(sv) == 1 and set(sv[0].tracks) == {1, 2}
+        assert sv[0].start == 0.0 and sv[0].end == 60.0
+    finally:
+        scene.zones["no_stopping"] = saved
+
+
+def test_vehicle_stuck_on_a_crossing_is_a_stop_line_violation(scene):
+    saved = scene.zones.get("crosswalks", [])
+    scene.zones["crosswalks"] = [[[0.49, 0.36], [0.55, 0.36], [0.55, 0.64], [0.49, 0.64]]]
+    try:
+        stuck = make_track(1, [(0, 100, 470), (5, 1000, 470), (35, 1000, 470), (40, 1870, 470)])
+        passing = make_track(2, [(10, 100, 490), (16, 1870, 490)])
+        cands = lines.detect_crosswalk_blocking(context([stuck, passing], scene), CFG.events, CFG.kin)
+        assert labels(cands) == ["stop_line"]
+        assert cands[0].start == pytest.approx(5, abs=1.0) and cands[0].end == pytest.approx(35, abs=1.0)
+        # a car that parked there before the video started never drove in
+        parked = make_track(3, [(0, 1000, 470), (40, 1000, 470)])
+        assert lines.detect_crosswalk_blocking(context([parked], scene), CFG.events, CFG.kin) == []
+    finally:
+        scene.zones["crosswalks"] = saved

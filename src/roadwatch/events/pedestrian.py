@@ -72,7 +72,8 @@ def detect_failure_to_yield(ctx: Context, cfg: EventCfg) -> list[Candidate]:
             after = np.where((tr.t > e) & ~inside)[0]
             if len(after):
                 e_out = float(tr.t[after[0]])
-            out.append(Candidate(s, max(e_out, s + 0.5), "failure_to_yield",
+            # the event includes the approach to the crossing, not only the moment on the stripes
+            out.append(Candidate(s - cfg.fy_lead, max(e_out, s + 0.5) + cfg.fy_tail, "failure_to_yield",
                                  float(0.5 + 0.5 * near / max(1, len(tr.fidx[w]))), (tr.tid,)))
     return out
 

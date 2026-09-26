@@ -130,5 +130,40 @@ def detect_solid_line_crossings(ctx: Context, cfg: EventCfg) -> list[Candidate]:
     return out
 
 
+def detect_crosswalk_blocking(ctx: Context, cfg: EventCfg, kin: KinematicsCfg) -> list[Candidate]:
+    """stop_line: vehicles that drove in and stopped on a pedestrian crossing, i.e. past the stop line
+    in front of it (typically stuck in the junction behind a queue). The event lasts while any of them
+    stands there. Crossings are the drawn crosswalks that lie on the carriageway."""
+    scene = ctx.scene
+    polys = [p for p in scene.zones.get("crosswalks", [])
+             if scene.on_road(np.asarray(scene.denorm(p["points"] if isinstance(p, dict) else p)).mean(0))[0]]
+    if not polys:
+        return []
+    t = np.arange(0.0, ctx.duration, 0.5)
+    count = np.zeros(len(t))
+    tids: set = set()
+    for tr in ctx.by_group("vehicle"):
+        on = np.zeros(len(tr.t), bool)
+        for p in polys:
+            on |= scene.in_polygon(p, tr.foot)
+        still = on & (tr.speed < kin.stationary_speed) & ~tr.edge
+        for a, b in runs(still):
+            # it drove in at some point (in a jam the last metres are a crawl); parked cars never did
+            if tr.t[b] - tr.t[a] < cfg.sl_min_stop or tr.travelled(tr.start, float(tr.t[a])) < 1.5:
+                continue
+            count += (t >= tr.t[a]) & (t <= tr.t[b])
+            tids.add(tr.tid)
+    out = []
+    for a, b in runs(count >= cfg.sl_block_min_vehicles):
+        s, e = float(t[a]), float(t[b])
+        if out and s - out[-1][1] <= cfg.sl_block_gap:
+            out[-1][1] = e
+        else:
+            out.append([s, e])
+    return [Candidate(s, e, "stop_line", 0.6, tuple(sorted(tids)), {"blocking": True})
+            for s, e in out if e - s >= cfg.sl_block_min_duration]
+
+
 def detect(ctx: Context, cfg: EventCfg, kin: KinematicsCfg) -> list[Candidate]:
-    return detect_signal_events(ctx, cfg, kin) + detect_solid_line_crossings(ctx, cfg)
+    return (detect_signal_events(ctx, cfg, kin) + detect_crosswalk_blocking(ctx, cfg, kin)
+            + detect_solid_line_crossings(ctx, cfg))
