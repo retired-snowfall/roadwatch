@@ -21,7 +21,7 @@ from ..config import EventCfg
 from ..constants import MOTORISED, ROAD_USERS
 from ..scene import angle_diff
 from ..tracks import Track
-from .base import Candidate, Context
+from .base import Candidate, Context, size_factor, trustworthy
 
 
 def pair_series(ctx: Context, min_size: float, max_dist: float = 4.0, horizon: float = 3.0) -> dict:
@@ -35,7 +35,8 @@ def pair_series(ctx: Context, min_size: float, max_dist: float = 4.0, horizon: f
     min_px = min_size * ctx.width
     for f in ctx.index.frames:
         items = [(ti, si) for ti, si in ctx.index.by_frame[int(f)]
-                 if tracks[ti].group in ROAD_USERS and tracks[ti].size[si] >= min_px and not tracks[ti].edge[si]]
+                 if tracks[ti].group in ROAD_USERS and not tracks[ti].edge[si]
+                 and tracks[ti].size[si] >= min_px * size_factor(tracks[ti].group)]
         if len(items) < 2:
             continue
         ti_arr = np.array([ti for ti, _ in items])
@@ -139,6 +140,8 @@ def detect_accidents(ctx: Context, series: dict, cfg: EventCfg) -> list[Candidat
         idx = np.where(contact & ~np.r_[False, contact[:-1]])[0]  # first frame of each contact run
         for k in idx:
             tc = float(s["t"][k])
+            if not (_reliable(ctx, ta, tc - 1.5, tc + 1.5, cfg) and _reliable(ctx, tb, tc - 1.5, tc + 1.5, cfg)):
+                continue
             ia, fa = _impact(ta, tc, cfg)
             ib, fb = _impact(tb, tc, cfg)
             impact = max(ia, ib)
@@ -210,6 +213,8 @@ def detect_near_misses(ctx: Context, series: dict, accidents: list[Candidate], c
         if not onsets:
             continue
         onset, kind, actor = min(onsets, key=lambda x: x[0])
+        if not (_reliable(ctx, ta, onset - 1.0, onset + 2.0, cfg) and _reliable(ctx, tb, onset - 1.0, onset + 2.0, cfg)):
+            continue
         va, vb = ta.vel[ta.index_at(tk)], tb.vel[tb.index_at(tk)]
         same_way = min(np.hypot(*va), np.hypot(*vb)) > 1e-3 and \
             angle_diff(np.degrees(np.arctan2(va[1], va[0])), np.degrees(np.arctan2(vb[1], vb[0]))) < 35
@@ -245,7 +250,15 @@ def _dedupe(cands: list[Candidate]) -> list[Candidate]:
     return kept
 
 
+def _reliable(ctx: Context, tr: Track, t0: float, t1: float, cfg: EventCfg) -> bool:
+    w = tr.window(t0, t1)
+    if w.stop - w.start < 2 or np.median(tr.foot[w][:, 1]) < cfg.col_min_y * ctx.height:
+        return False  # the far road: boxes overlap in perspective without touching on the ground
+    return trustworthy(ctx, tr, w.start, w.stop - 1, cfg, min_size=cfg.col_min_size * size_factor(tr.group),
+                       margin=0.0)
+
+
 def detect(ctx: Context, cfg: EventCfg) -> list[Candidate]:
-    series = pair_series(ctx, cfg.min_size)
+    series = pair_series(ctx, cfg.col_min_size)
     accidents = detect_accidents(ctx, series, cfg)
     return accidents + detect_near_misses(ctx, series, accidents, cfg)

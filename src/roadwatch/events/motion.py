@@ -6,7 +6,7 @@ import numpy as np
 from ..config import EventCfg
 from ..scene import angle_diff, movement_key, runs
 from ..tracks import Track
-from .base import Candidate, Context, mask_to_intervals
+from .base import Candidate, Context, mask_to_intervals, trustworthy
 
 
 def _motorised(ctx: Context) -> list[Track]:
@@ -24,7 +24,7 @@ def detect_wrong_way(ctx: Context, cfg: EventCfg) -> list[Candidate]:
             w = tr.window(s, e)
             travelled = np.linalg.norm(tr.foot[w][-1] - tr.foot[w][0]) / np.median(tr.size[w])
             share = against[w].mean()
-            if travelled < 1.5 or share < 0.6:
+            if travelled < cfg.ww_min_travel or share < 0.6 or not trustworthy(ctx, tr, w.start, w.stop - 1, cfg):
                 continue
             if tr.end - e < 1.0:        # still against the flow when it disappears: it left the frame
                 e = tr.end
@@ -68,6 +68,8 @@ def detect_u_turns(ctx: Context, cfg: EventCfg) -> list[Candidate]:
     out = []
     for tr in _motorised(ctx):
         for s, e, turn in _turn_segments(tr, cfg.ut_min_turn, 250.0, cfg.ut_max_duration):
+            if not trustworthy(ctx, tr, s, e, cfg):
+                continue
             mid = tr.foot[(s + e) // 2]
             if ctx.scene.zones.get("u_turn_allowed") and ctx.scene.in_zones("u_turn_allowed", mid)[0]:
                 continue
@@ -79,7 +81,11 @@ def detect_u_turns(ctx: Context, cfg: EventCfg) -> list[Candidate]:
 
 
 def detect_illegal_turns(ctx: Context, cfg: EventCfg) -> list[Candidate]:
-    """Turns matching a drawn prohibited movement, or (with a large prior) movements never seen before."""
+    """Turns matching a drawn prohibited movement (weights/zones.json "no_turn").
+
+    Whether a turn is legal depends on signs the camera cannot read. The statistical fallback
+    (movements rarely seen in the samples) mostly caught tracking artefacts on the real junction,
+    so it is off unless cfg.it_rare_movements is set."""
     out = []
     scene = ctx.scene
     rules = scene.zones.get("no_turn") or []
@@ -89,6 +95,8 @@ def detect_illegal_turns(ctx: Context, cfg: EventCfg) -> list[Candidate]:
         if not turns:
             continue
         for s, e, turn in turns:
+            if not trustworthy(ctx, tr, s, e, cfg):
+                continue
             hit = None
             for rule in rules:
                 a = scene.in_polygon(rule["from"], tr.foot[: s + 1])
@@ -96,7 +104,7 @@ def detect_illegal_turns(ctx: Context, cfg: EventCfg) -> list[Candidate]:
                 if a.any() and b.any():
                     hit = rule.get("name", "no_turn")
                     break
-            if hit is None and total >= cfg.it_min_movements and not rules:
+            if hit is None and cfg.it_rare_movements and total >= cfg.it_min_movements and not rules:
                 key = movement_key(tr, ctx.width, ctx.height)
                 if key is None:
                     continue

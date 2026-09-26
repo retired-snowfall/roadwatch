@@ -41,21 +41,30 @@ def detect_signal_events(ctx: Context, cfg: EventCfg, kin: KinematicsCfg) -> lis
         ctx.signals[li] = {"red": reds, "light": None if light is None else light.box.tolist()}
         if not reds:
             continue
+        geo = []
         for tr in vehicles:
             fr = front_points(tr, line)
             al, ac = line.along(fr), line.across(fr)
             lateral = np.abs(ac) < line.half + 0.3 * tr.size
             ok = lateral & approaching(tr, line, 50.0) & ~tr.edge
-            # --- red_light: the front crosses the line while moving, inside a red period
             cross = np.where(ok[1:] & (al[:-1] < 0) & (al[1:] >= 0))[0] + 1
+            geo.append((tr, al, ok, cross))
+        # every moving crossing of this line: a steady stream of them means the signal is green
+        crossings = np.array(sorted(float(tr.t[k]) for tr, _, _, cross in geo for k in cross
+                                    if tr.speed[k] >= cfg.rl_min_speed))
+        for tr, al, ok, cross in geo:
+            # --- red_light: the front crosses the line while moving, inside a red period
             for k in cross:
                 tx = float(tr.t[k])
                 if tr.speed[k] < cfg.rl_min_speed:
                     continue
                 light_red = light.red_at(tx) if light is not None else None
                 others = [(s, e, tid) for s, e, tid in waits if tid != tr.tid and s + 1.0 <= tx <= e - 1.0]
-                if light_red is False or (light_red is None and not others):
+                stream = int(((crossings >= tx - cfg.rl_stream_window) & (crossings <= tx + cfg.rl_stream_window)).sum())
+                if light_red is False or stream > cfg.rl_max_stream:
                     continue
+                if light_red is None and len({tid for _, _, tid in others}) < cfg.rl_min_waiting:
+                    continue  # without a visible light, one waiting car (e.g. turning) is not proof of red
                 exit_t = _exit_time(ctx, tr, k, line)
                 out.append(Candidate(tx, max(exit_t, tx + 0.5), "red_light", 0.9 if light_red else 0.7,
                                      (tr.tid,), {"line": li, "waiting": len(others), "light": light_red}))

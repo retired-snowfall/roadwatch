@@ -13,7 +13,8 @@ def detect_jaywalking(ctx: Context, cfg: EventCfg) -> list[Candidate]:
     out = []
     scene = ctx.scene
     for tr in ctx.by_group("person"):
-        off_crossing = ~tr.edge & ~scene.in_crossing(tr.foot)
+        # people walk on and beside the painted stripes: only clearly away from a crossing counts
+        off_crossing = ~tr.edge & (scene.crossing_distance(tr.foot) > cfg.jw_crosswalk_margin * tr.size)
         on = off_crossing & scene.on_road(tr.foot)
         # boundaries come from the full carriageway mask, but the person must also get well
         # inside it (eroded mask) for a while: a curb-side wait does not count
@@ -26,15 +27,29 @@ def detect_jaywalking(ctx: Context, cfg: EventCfg) -> list[Candidate]:
     return out
 
 
+def _in_path(foot: np.ndarray, v: np.ndarray, size: float, p: np.ndarray, pv: np.ndarray, cfg: EventCfg) -> bool:
+    """Is a pedestrian at p (velocity pv) walking across this vehicle's path, just ahead of or beside it?"""
+    sp = float(np.hypot(*v))
+    if sp < 1e-6:
+        return False
+    u = v / sp
+    n = np.array([-u[1], u[0]])
+    rel = p - foot
+    ahead, lateral = float(rel @ u), abs(float(rel @ n))
+    crossing = abs(float(pv @ n)) >= 0.5 * float(np.hypot(*pv))   # moving across the vehicle's direction
+    return crossing and -0.5 * size <= ahead <= 2.0 * size and lateral <= cfg.fy_gap * size
+
+
 def detect_failure_to_yield(ctx: Context, cfg: EventCfg) -> list[Candidate]:
     scene = ctx.scene
     # frames where a pedestrian is walking across a crossing that lies on the carriageway
     # (people waiting at the kerb end of a crosswalk have not claimed it yet)
-    ped_frames: dict[int, list[np.ndarray]] = defaultdict(list)
+    ped_frames: dict[int, list[tuple[np.ndarray, np.ndarray]]] = defaultdict(list)
     for tr in ctx.by_group("person"):
-        on = scene.in_crossing(tr.foot) & scene.on_road(tr.foot) & (tr.speed >= cfg.fy_ped_speed)
-        for f, p in zip(tr.fidx[on], tr.foot[on]):
-            ped_frames[int(f)].append(p)
+        on = (scene.crossing_distance(tr.foot) <= cfg.jw_crosswalk_margin * tr.size) & scene.on_road(tr.foot) \
+            & (tr.speed >= cfg.fy_ped_speed)
+        for f, p, v in zip(tr.fidx[on], tr.foot[on], tr.vel[on]):
+            ped_frames[int(f)].append((p, v))
     if not ped_frames:
         return []
     out = []
@@ -45,11 +60,11 @@ def detect_failure_to_yield(ctx: Context, cfg: EventCfg) -> list[Candidate]:
             if np.median(tr.speed[w]) < cfg.fy_min_speed or tr.speed[w].min() < 0.15:
                 continue  # it slowed or stopped for the crossing
             near = 0
-            for f, foot, size in zip(tr.fidx[w], tr.foot[w], tr.size[w]):
-                if any(np.linalg.norm(p - foot) < cfg.fy_gap * size for p in ped_frames.get(int(f), ())):
+            for f, foot, size, v in zip(tr.fidx[w], tr.foot[w], tr.size[w], tr.vel[w]):
+                if any(_in_path(foot, v, size, p, pv, cfg) for p, pv in ped_frames.get(int(f), ())):
                     near += 1
             if near < 2:
-                continue  # it must pass close to a crossing pedestrian, not just share a wide crosswalk
+                continue  # it must pass through the path of a crossing pedestrian, not just share a crosswalk
             e_out = e
             after = np.where((tr.t > e) & ~inside)[0]
             if len(after):

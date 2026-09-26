@@ -13,7 +13,9 @@ def detect_obstacles(ctx: Context, cfg: EventCfg) -> list[Candidate]:
         on = ctx.scene.on_road(tr.foot) & ~tr.edge
         for s, e in mask_to_intervals(tr.t, on, gap=2.0, min_len=1.0):
             out.append(Candidate(s, e, "road_obstacle", 0.7, (tr.tid,), {"kind": tr.label}))
-    for bl in ctx.extras.get("static_blobs", []):
+    # static foreground blobs: on a busy junction these are nearly always queued vehicles the detector
+    # missed, so they only count when enabled (cfg.ob_static_blobs)
+    for bl in ctx.extras.get("static_blobs", []) if cfg.ob_static_blobs else []:
         if bl.t1 - bl.t0 < cfg.ob_min_duration or bl.hits < 4:
             continue
         centre = np.array([(bl.box[0] + bl.box[2]) / 2, bl.box[3]])

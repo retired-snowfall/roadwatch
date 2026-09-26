@@ -311,6 +311,22 @@ class SceneModel:
             inside |= self.in_polygon(poly, pts)
         return inside
 
+    def crossing_distance(self, pts: np.ndarray) -> np.ndarray:
+        """Pixels from each point to the nearest pedestrian crossing (<= 0 inside one). Drawn crosswalks
+        give exact distances; learned crossing cells (already dilated) give 0 inside and inf outside."""
+        pts = np.asarray(pts, np.float64).reshape(-1, 2)
+        polys = self.zones.get("crosswalks") or []
+        if not polys:
+            return np.where(self.in_crossing(pts), 0.0, np.inf)
+        best = np.full(len(pts), np.inf)
+        for poly in polys:
+            cnt = self.denorm(poly["points"] if isinstance(poly, dict) else poly).astype(np.float32).reshape(-1, 1, 2)
+            if len(cnt) < 3:
+                continue
+            d = np.array([-cv2.pointPolygonTest(cnt, (float(x), float(y)), True) for x, y in pts])
+            best = np.minimum(best, d)
+        return best
+
     def in_crossing(self, pts: np.ndarray) -> np.ndarray:
         """Pedestrian crossings: drawn crosswalks, else carriageway cells most pedestrians use."""
         if self.zones.get("crosswalks"):

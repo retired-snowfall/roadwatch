@@ -28,6 +28,7 @@ from . import budget, register
 from .config import CFG, WEIGHTS_DIR, Config
 from .constants import MOTORISED, ROAD_USERS
 from .detector import device_kind, get_detector
+from .events.base import size_factor
 from .scene import SceneModel, angle_diff, thumbnail
 from .tracker import ByteTracker, STrack
 from .video import FrameSampler, work_size
@@ -201,7 +202,7 @@ class CausalRisk:
         self._time_guard(t)
         if self.work is None:
             self.work = work_size(frame.shape[1], frame.shape[0])
-            self.min_px = self.cfg.events.min_size * self.work[0]
+            self.min_px = self.cfg.events.col_min_size * self.work[0]
         if (frame.shape[1], frame.shape[0]) != self.work:  # same working pixels as Part A and the scene prior
             frame = cv2.resize(frame, self.work, interpolation=cv2.INTER_AREA)
         if not self.scene_checked:
@@ -210,7 +211,7 @@ class CausalRisk:
         self.tracker.update(dets, t)
         W, H = self.work
         live = [x for x in self.tracker.tracks if x.state == "tracked" and x.t_seen >= t - 1e-6
-                and x.group in ROAD_USERS and x.size >= self.min_px
+                and x.group in ROAD_USERS and x.size >= self.min_px * size_factor(x.group)
                 and x.box[0] > 3 and x.box[1] > 3 and x.box[2] < W - 3 and x.box[3] < H - 3]  # cut-off boxes jitter
         for x in live:
             self.history.setdefault(x.tid, deque(maxlen=24)).append((t, x.speed))

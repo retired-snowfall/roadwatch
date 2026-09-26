@@ -119,17 +119,21 @@ def test_solid_line_crossing(scene):
         scene.zones["solid_lines"] = []
 
 
-def test_red_light(scene):
-    # stop line at x=1200 across the right-bound lanes; one car waits, another runs it
+@pytest.mark.parametrize("n_waiting, expected", [(2, 1), (1, 0)])
+def test_red_light(scene, n_waiting, expected):
+    # stop line at x=1200 across the right-bound lanes; cars wait at it, another runs it.
+    # Without a visible light one waiting car (it may be turning) is not enough evidence of red.
     scene.zones["stop_lines"] = [{"points": [[1200 / 1920, 420 / 1080], [1200 / 1920, 520 / 1080]], "dir": 0}]
     try:
-        waiter = make_track(1, [(0, 900, 440), (4, 1150, 440), (40, 1150, 440), (46, 1870, 440)])
-        runner = make_track(2, [(8, 100, 505), (14, 1870, 505)])
-        ctx = context([waiter, runner], scene)
+        waiters = [make_track(1 + k, [(0, 900, y), (4, 1150, y), (40, 1150, y), (46, 1870, y)])
+                   for k, y in enumerate((440, 470)[:n_waiting])]
+        runner = make_track(9, [(8, 100, 505), (14, 1870, 505)])
+        ctx = context(waiters + [runner], scene)
         cands = lines.detect_signal_events(ctx, CFG.events, CFG.kin)
         rl = [c for c in cands if c.label == "red_light"]
-        assert len(rl) == 1 and rl[0].tracks == (2,)
-        assert rl[0].start == pytest.approx(8 + 6 * 1100 / 1770, abs=0.6)
+        assert len(rl) == expected and all(c.tracks == (9,) for c in rl)
+        if rl:
+            assert rl[0].start == pytest.approx(8 + 6 * 1100 / 1770, abs=0.6)
     finally:
         scene.zones["stop_lines"] = []
 

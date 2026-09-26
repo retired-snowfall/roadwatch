@@ -68,6 +68,28 @@ def merge_intervals(iv: list[tuple[float, float]], gap: float) -> list[tuple[flo
     return [(a, b) for a, b in out]
 
 
+def size_factor(group: str) -> float:
+    """People are smaller boxes than vehicles at the same distance: their minimum size is scaled down."""
+    return 0.6 if group == "person" else 1.0
+
+
+def trustworthy(ctx: "Context", tr: Track, i0: int, i1: int, cfg, min_size: float | None = None,
+                margin: float = 0.25) -> bool:
+    """Can a manoeuvre on samples i0..i1 of this track be believed? On a busy junction most odd-looking
+    manoeuvres are artefacts: far-away boxes that jitter, boxes cut off by the frame border, or an
+    identity switch onto a neighbouring vehicle."""
+    sl = slice(i0, i1 + 1)
+    size = float(np.median(tr.size[sl]))
+    if size < (cfg.min_size if min_size is None else min_size) * ctx.width:
+        return False
+    b = tr.box[sl]
+    margin = margin * size
+    if (b[:, 0] < margin).any() or (b[:, 1] < margin).any() or (b[:, 2] > ctx.width - margin).any() \
+            or (b[:, 3] > ctx.height - margin).any():
+        return False
+    return tr.jump(float(tr.t[i0]) - 0.5, float(tr.t[i1]) + 0.5) <= cfg.acc_max_jump
+
+
 def mask_to_intervals(t: np.ndarray, mask: np.ndarray, gap: float, min_len: float) -> list[tuple[float, float]]:
     """Turn a boolean series sampled at times t into merged [start, end] intervals."""
     from ..scene import runs

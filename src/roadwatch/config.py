@@ -78,6 +78,8 @@ class SceneCfg:
 @dataclass
 class EventCfg:
     min_size: float = 0.018           # objects smaller than this share of the image width are too noisy
+    col_min_size: float = 0.035       # accident / near miss (Part A and B): far-away boxes jitter too much
+    col_min_y: float = 0.25           # share of the (reference) image height: above it is the far road
                                       # for acceleration-based rules (accident, near miss)
     # accident
     acc_contact_gap: float = 0.15     # ground-contact distance / size
@@ -95,12 +97,14 @@ class EventCfg:
     nm_follow_gap: float = 0.6        # same-direction pairs must come this close (sizes)
     # wrong way
     ww_angle: float = 125.0           # deg against the lane direction
-    ww_min_duration: float = 1.5
+    ww_min_duration: float = 3.0       # sustained: a turn across the lanes is not wrong-way driving
+    ww_min_travel: float = 4.0         # object sizes travelled against the flow
     ww_min_speed: float = 0.6
     # u-turn / illegal turn
     ut_min_turn: float = 150.0        # deg of cumulative heading change
     ut_max_duration: float = 20.0
     it_min_movements: int = 40        # prior movements needed before rare turns are flagged
+    it_rare_movements: bool = False   # flag statistically rare movements without drawn no-turn rules
     it_max_share: float = 0.01
     # stopped vehicle / congestion
     sv_min_duration: float = 10.0
@@ -112,16 +116,21 @@ class EventCfg:
     # pedestrians
     jw_min_duration: float = 1.2
     jw_road_erode: int = 1            # cells
+    jw_crosswalk_margin: float = 2.0  # person sizes beside a crosswalk still count as on it
     fy_min_speed: float = 0.5
     fy_gap: float = 1.5               # pedestrian within this many vehicle sizes (~a lane) of the vehicle
     fy_ped_speed: float = 0.3         # sizes/s: the pedestrian is walking, not waiting
     # lines and signals
     rl_min_speed: float = 0.8
+    rl_min_waiting: int = 2           # other vehicles waiting at the line (when no light is visible)
+    rl_stream_window: float = 4.0     # s either side of a crossing
+    rl_max_stream: int = 3            # more moving crossings than this in the window = green
     sl_min_stop: float = 3.0
     slc_min_depth: float = 0.25       # share of the vehicle width past the line
     # obstacle / fire
     ob_min_duration: float = 5.0
     ob_min_area: float = 0.0006       # share of the image
+    ob_static_blobs: bool = False     # background-difference obstacles (see hazards.py)
     fire_min_duration: float = 2.0
     # segments
     merge_gap: float = 1.0
