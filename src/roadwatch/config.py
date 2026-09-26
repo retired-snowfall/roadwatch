@@ -144,6 +144,11 @@ class RiskCfg:
     horizon: float = 5.0
     ema: float = 0.5                  # smoothing of the fused score (per analysed frame)
     ttc_scale: float = 1.4            # s; risk halves roughly every ttc_scale beyond the knee
+    ttc_knee: float = 1.2             # s to closest approach where the conflict cue is 0.5
+    max_cpa: float = 0.5              # predicted closest approach (sizes) for a collision course
+    persist: int = 2                  # analysed frames with fused >= 0.5 before an alarm
+    brake_cap: float = 0.35           # braking alone never raises an alarm
+    min_y: float = 0.4                # ignore the far part of the (reference) view, where boxes overlap
     hold: float = 1.5                 # s a high score is held after its cue disappears
     min_fps: float = 1.5              # the time guard never analyses fewer frames per second
     guard_every: float = 3.0          # s of video between time-guard checks

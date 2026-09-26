@@ -63,6 +63,8 @@ class CausalRisk:
         self.H: np.ndarray | None = None          # this video's view -> the prior's reference view
         self.scene_checked = False
         self.last_cues: dict = {}
+        self.streak = 0                            # consecutive analysed frames with fused >= 0.5
+        self.ww_since: dict[int, float] = {}       # track id -> first time seen against its lane
         self.work: tuple[int, int] | None = None   # set from the first analysed frame
         n, fps = int(meta.get("n_frames") or 0), self.fps
         self.duration = n / fps if n > 0 else 0.0
@@ -97,7 +99,7 @@ class CausalRisk:
                     continue
                 pa = np.array([(a.box[0] + a.box[2]) / 2, a.box[3]])
                 pb = np.array([(b.box[0] + b.box[2]) / 2, b.box[3]])
-                size = (a.size + b.size) / 2
+                size = min((a.size + b.size) / 2, 1.5 * min(a.size, b.size))   # a bus must not shrink the gap
                 rel, rv = pb - pa, b.velocity - a.velocity
                 closing = float(np.linalg.norm(rv) / size)
                 if closing < 0.6:
@@ -111,14 +113,23 @@ class CausalRisk:
                     continue  # closing up on the car ahead in the same lane: ordinary traffic
                 dstar = float(np.linalg.norm(rel + rv * tstar) / size)
                 soft = max(soft, float(np.exp(-tstar / 2.5) * np.exp(-dstar / 1.2) * min(1.0, closing / 1.5)))
-                if dstar > 0.9:
-                    continue
-                # time term: ~0.5 at 1.5 s, ~0.8 at 0.6 s; distance term favours head-on geometry
-                c = _sigmoid((1.5 - tstar) / (0.4 * self.cfg.risk.ttc_scale)) * (1.0 - 0.6 * dstar / 0.9)
+                gap = self.cfg.risk.max_cpa
+                if dstar > gap:
+                    continue  # passing in the next lane is not a collision course
+                # time term: ~0.5 at the knee, higher as contact nears; distance term favours head-on geometry
+                c = _sigmoid((self.cfg.risk.ttc_knee - tstar) / (0.4 * self.cfg.risk.ttc_scale)) * (1.0 - 0.6 * dstar / gap)
                 c *= min(1.0, closing / 1.5)
                 if c > best:
                     best, pair = c, (a.tid, b.tid)
         return best, pair, soft
+
+    def _near_field(self, x: STrack, height: int) -> bool:
+        """Below the far road (in the reference view when registered): up there boxes overlap in
+        perspective without touching on the ground."""
+        foot = np.array([[(x.box[0] + x.box[2]) / 2, x.box[3]]])
+        if self.H is not None:
+            foot = register.warp_points(self.H, foot)
+        return float(foot[0, 1]) >= self.cfg.risk.min_y * height
 
     @staticmethod
     def _following(a: STrack, b: STrack) -> bool:
@@ -127,6 +138,24 @@ class CausalRisk:
         if min(np.linalg.norm(va) / a.size, np.linalg.norm(vb) / b.size) < 0.3:
             return False
         return angle_diff(np.degrees(np.arctan2(va[1], va[0])), np.degrees(np.arctan2(vb[1], vb[0]))) < 35
+
+    @staticmethod
+    def _partner_ahead(a: STrack, tracks: list[STrack]) -> bool:
+        """Another road user in front of `a` (along its recent heading), within 3 sizes: something to brake for."""
+        h = a.velocity
+        n = float(np.hypot(*h))
+        if n < 1e-6:
+            return False
+        u = h / n
+        fa = np.array([(a.box[0] + a.box[2]) / 2, a.box[3]])
+        for b in tracks:
+            if b.tid == a.tid:
+                continue
+            rel = np.array([(b.box[0] + b.box[2]) / 2, b.box[3]]) - fa
+            ahead, lateral = float(rel @ u), abs(float(rel @ np.array([-u[1], u[0]])))
+            if 0.0 < ahead < 3.0 * a.size and lateral < 1.2 * a.size:
+                return True
+        return False
 
     def _braking(self, tracks: list[STrack], t: float) -> float:
         best = 0.0
@@ -140,15 +169,16 @@ class CausalRisk:
             drop = max(past) - a.speed
             if max(past) < 0.8 or drop < 0.5 * max(past):
                 continue
-            near = any(b.tid != a.tid and np.hypot(*(b.mean[:2] - a.mean[:2])) < 3.0 * a.size for b in tracks)
-            if near:
-                best = max(best, min(0.45, 0.25 * drop))
+            if self._partner_ahead(a, tracks):
+                best = max(best, min(self.cfg.risk.brake_cap, 0.25 * drop))
         return best
 
-    def _wrong_way(self, tracks: list[STrack]) -> float:
-        if self.scene is None:
+    def _wrong_way(self, tracks: list[STrack], t: float) -> float:
+        """Driving against the learned lane direction, sustained (a turn across the lanes is not)."""
+        if self.scene is None or (self.prior is not None and self.prior.background is not None and self.H is None):
             return 0.0
         best = 0.0
+        flagged = set()
         for a in tracks:
             if a.group not in MOTORISED or a.speed < 0.8 or a.hits < 6:
                 continue
@@ -161,7 +191,11 @@ class CausalRisk:
                 v = ahead - foot
                 heading = np.degrees(np.arctan2(v[1], v[0]))
                 if angle_diff(heading, lane[0]) > 130:
-                    best = max(best, 0.25)
+                    flagged.add(a.tid)
+                    since = self.ww_since.setdefault(a.tid, t)
+                    if t - since >= self.cfg.events.ww_min_duration:
+                        best = max(best, 0.25)
+        self.ww_since = {k: v for k, v in self.ww_since.items() if k in flagged}
         return best
 
     def _impact(self, tracks: list[STrack], t: float) -> float:
@@ -212,7 +246,8 @@ class CausalRisk:
         W, H = self.work
         live = [x for x in self.tracker.tracks if x.state == "tracked" and x.t_seen >= t - 1e-6
                 and x.group in ROAD_USERS and x.size >= self.min_px * size_factor(x.group)
-                and x.box[0] > 3 and x.box[1] > 3 and x.box[2] < W - 3 and x.box[3] < H - 3]  # cut-off boxes jitter
+                and x.box[0] > 3 and x.box[1] > 3 and x.box[2] < W - 3 and x.box[3] < H - 3  # cut-off boxes jitter
+                and self._near_field(x, H)]
         for x in live:
             self.history.setdefault(x.tid, deque(maxlen=24)).append((t, x.speed))
         alive = {x.tid for x in self.tracker.tracks}
@@ -220,9 +255,14 @@ class CausalRisk:
             del self.history[tid]
 
         conflict, pair, soft = self._conflict(live)
-        cues = {"conflict": conflict, "braking": self._braking(live, t), "wrong_way": self._wrong_way(live),
+        cues = {"conflict": conflict, "braking": self._braking(live, t), "wrong_way": self._wrong_way(live, t),
                 "impact": self._impact(live, t)}
         fused = 1.0 - float(np.prod([1.0 - c for c in cues.values()]))
+        # an alarm needs the strong cues on consecutive analysed frames: single-frame spikes (a box
+        # jumping, a pair briefly predicted to meet) stay just below the threshold but keep their rank
+        self.streak = self.streak + 1 if fused >= 0.5 else 0
+        if fused >= 0.5 and self.streak < self.cfg.risk.persist:
+            fused = 0.49
         # the soft term only orders quiet frames: capped at 0.3, it can never raise an alarm by itself
         fused = max(fused, 0.3 * soft)
         self.last_cues = {**cues, "soft": soft, "pair": pair}

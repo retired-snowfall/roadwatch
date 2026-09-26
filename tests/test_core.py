@@ -120,3 +120,25 @@ def test_oblique_stop_line_measures_distance_along_travel():
     assert line.along([[100.0, 60.0]])[0] == pytest.approx(10.0, abs=1e-6)  # 10 px below its right end
     assert line.along([[0.0, -5.0]])[0] == pytest.approx(-5.0, abs=1e-6)    # before the line
     assert abs(line.across([[100.0, 50.0]])[0]) == pytest.approx(line.half, abs=1e-6)
+
+
+def test_risk_alarm_needs_consecutive_frames():
+    from roadwatch.risk import CausalRisk
+
+    from types import SimpleNamespace
+
+    class NoDetections:                     # stands in for YOLO
+        profile = SimpleNamespace(imgsz=640)
+
+        def __call__(self, frames, imgsz=None):
+            return [np.zeros((0, 6), np.float32) for _ in frames]
+
+    est = CausalRisk()
+    est.detector = NoDetections()
+    est.reset({"video_id": "synthetic.mp4", "fps": 3.0, "width": 64, "height": 36, "n_frames": 30})
+    script = iter([0.7, 0.0, 0.0, 0.0, 0.0, 0.0, 0.7, 0.7, 0.0])
+    est._conflict = lambda tracks: (next(script), (), 0.0)
+    frame = np.zeros((36, 64, 3), np.uint8)
+    scores = [est.step(frame, k / 3.0) for k in range(9)]
+    assert max(scores[:6]) < 0.5            # a single-frame spike ranks high but raises no alarm
+    assert scores[7] >= 0.5                 # two consecutive frames do
