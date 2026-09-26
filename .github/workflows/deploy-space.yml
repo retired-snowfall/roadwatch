@@ -27,3 +27,4 @@ jobs:
           HF_SPACE: ${{ vars.HF_SPACE }}
           HF_SPACE_SDK: ${{ vars.HF_SPACE_SDK || 'docker' }}
           ROADWATCH_API: ${{ vars.ROADWATCH_API }}
+          SMOKE_VIDEO: web/static/data/samples/C3905/preview.mp4

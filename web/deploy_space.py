@@ -116,6 +116,11 @@ def wait_until_running(api, space: str, site: str, timeout: float = 40 * 60) -> 
                     print("health:", r.read().decode()[:300])
             except Exception as exc:  # the proxy may need a moment after the container starts
                 print(f"health check failed: {exc}")
+            video = os.environ.get("SMOKE_VIDEO", "").strip()
+            if video and Path(video).exists():   # end to end: upload a sample to the live demo
+                sys.path.insert(0, str(Path(__file__).parent))
+                from smoke_test import run
+                return run(site, Path(video))
             return 0
         if rt.stage in ("BUILD_ERROR", "RUNTIME_ERROR", "CONFIG_ERROR", "NO_APP_FILE"):
             print("Space failed:", (rt.raw or {}).get("errorMessage", rt.stage))
