@@ -32,14 +32,19 @@ RoadWatch: traffic-event detection and accident-risk estimation for a fixed road
 
 
 def main() -> int:
-    token = os.environ.get("HF_TOKEN")
+    token = (os.environ.get("HF_TOKEN") or "").strip().strip('"').strip("'")
     if not token:
         print("HF_TOKEN is not set: nothing to deploy (add it under Settings -> Secrets and variables -> Actions).")
         return 0
     from huggingface_hub import HfApi
 
     api = HfApi(token=token)
-    user = api.whoami()["name"]
+    try:
+        user = api.whoami()["name"]
+    except Exception as exc:  # 401: the secret is not a valid token
+        print(f"Hugging Face rejected HF_TOKEN ({exc.__class__.__name__}). The secret must be the token value itself "
+              f"(starts with 'hf_', {len(token)} characters here, starts with {token[:3]!r}), created with the Write role.")
+        return 1
     space = os.environ.get("HF_SPACE") or f"{user}/roadwatch"
     api.create_repo(space, repo_type="space", space_sdk="docker", exist_ok=True)
 
