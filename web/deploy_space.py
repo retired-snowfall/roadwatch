@@ -5,11 +5,12 @@ secret, HF_TOKEN: a Hugging Face access token with write permission. The Space i
 on first run as <hf-user>/roadwatch (override with the HF_SPACE variable) and serves the
 site at https://<hf-user>-roadwatch.hf.space.
 
-Two modes (repository variable HF_SPACE_SDK):
-  static (default)  the static site (all pages, results, videos); free on every account. The live
-                    demo page calls the backend named by the ROADWATCH_API variable (a server
-                    running web/Dockerfile, e.g. set up with web/deploy_vm.sh).
-  docker            the full FastAPI app with the demo inside the Space (needs Hugging Face PRO).
+Two modes (repository variable HF_SPACE_SDK; the workflow defaults to docker):
+  docker   the full FastAPI app (web/Dockerfile): site and live demo in one Space. Needs Hugging
+           Face PRO on the account; runs on the free CPU Basic hardware.
+  static   the static site (all pages, results, videos); free on every account. The live demo
+           page calls the backend named by the ROADWATCH_API variable (a server running
+           web/Dockerfile, e.g. set up with web/deploy_vm.sh).
 """
 from __future__ import annotations
 
