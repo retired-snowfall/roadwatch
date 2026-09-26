@@ -5,8 +5,9 @@ video name); `python tools/labels_from_text.py labels/team_labels.txt --videos s
 `dev_labels.json`, merging overlapping events of one class as the official format requires.
 
 A team member visited the junction afterwards: **U-turns are allowed there**, so the U-turns first labelled as
-illegal turns were removed, except one (C3905, 1:34): a car that pushed through pedestrians on a crossing
-and then drove onto the pavement, relabelled as failure_to_yield (driving on the pavement has no class).
+illegal turns were removed. The one other "illegal turn" (C3905, 1:21) is a car that pushed through pedestrians on
+the right crosswalk and then drove onto the pavement: it is already labelled failure_to_yield (1:20–1:23), and
+driving on the pavement has no class of its own, so it was dropped too.
 There are no solid lines on the far carriageway (the next junction is about a kilometre away).
 
 `dev_labels.json` holds our own annotations of the organisers' sample videos, in the official ground-truth format:
