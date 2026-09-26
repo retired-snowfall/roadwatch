@@ -34,12 +34,12 @@ def thin(curve: list, max_points: int = 3000) -> list:
     return curve[::step]
 
 
-def build_video(path: Path, out_root: Path, skip_media: bool) -> dict:
+def build_video(path: Path, out_root: Path, skip_media: bool, known_risk: dict | None = None) -> dict:
     out = out_root / "samples" / path.stem
     out.mkdir(parents=True, exist_ok=True)
     an = analyze(str(path))
     result = an.to_json()
-    risk = risk_curve(str(path))
+    risk = (known_risk or {}).get(path.name) or risk_curve(str(path))
     result["risk"] = thin(risk)
     result["eda"] = eda.video_stats(an)
     result["pictures"] = eda.write_pictures(an, out)
@@ -65,6 +65,8 @@ def main() -> None:
     ap.add_argument("--videos", required=True)
     ap.add_argument("--out", default=str(ROOT / "web" / "static" / "data"))
     ap.add_argument("--skip-media", action="store_true", help="JSON and pictures only (fast)")
+    ap.add_argument("--risk-from", help="reuse the Part B curves of a run_submission.py output (e.g. predictions_samples.json) "
+                                        "instead of streaming each video again")
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
     os.environ.setdefault("ROADWATCH_CACHE", str(ROOT / ".cache" / "perception"))
@@ -72,7 +74,10 @@ def main() -> None:
     out_root.mkdir(parents=True, exist_ok=True)
 
     videos = sorted(q for q in Path(args.videos).iterdir() if q.suffix.lower() == ".mp4")
-    index = {"videos": [build_video(p, out_root, args.skip_media) for p in videos]}
+    known = None
+    if args.risk_from:
+        known = {name: v.get("risk") for name, v in json.loads(Path(args.risk_from).read_text())["videos"].items()}
+    index = {"videos": [build_video(p, out_root, args.skip_media, known) for p in videos]}
 
     prior = load_prior()
     if prior is not None:
