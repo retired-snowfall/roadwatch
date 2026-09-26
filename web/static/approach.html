@@ -46,10 +46,15 @@
     <div class="stage classic"><span class="tag pill">classical</span><h4>Trajectories</h4>
       <p>Fragments of one object are stitched, people riding a bicycle or motorcycle are not counted as pedestrians,
         positions are smoothed with a local linear fit. Speed and acceleration are measured in object sizes per second (perspective-robust).</p></div>
+    <div class="stage classic"><span class="tag pill">classical</span><h4>Register the view</h4>
+      <p>The camera is re-aimed between recordings (up to 62 px and 2 % zoom on the samples). The video's background is
+        matched to the reference view with SIFT features and a RANSAC homography; trajectories are mapped into it, so the
+        learned map and the traced zones fit every framing.</p></div>
     <div class="stage learned"><span class="tag pill">learned, no labels</span><h4>Scene model</h4>
       <p>From all sample trajectories: carriageway mask, per-cell lane direction, traffic streams, where vehicles wait,
-        stop lines (where different vehicles that drove in, waited and drove off again stop first, over several signal cycles),
-        movement statistics. Hand-drawn crosswalks, solid lines and no-turn rules override.</p></div>
+        stop lines fitted along where the first car of each lane waits (different vehicles that drove in, waited and drove
+        off again, over several signal cycles), movement statistics. The junction's crosswalks are traced once in the
+        reference view; drawn solid lines and no-turn rules can be added the same way.</p></div>
     <div class="stage classic"><span class="tag pill">classical</span><h4>Pixel side channels</h4>
       <p>At 1 fps: median background, objects that appear and stay on the road, flickering fire-coloured pixels,
         grey textureless smoke, traffic-light colour.</p></div>
@@ -67,19 +72,19 @@
   <table>
     <thead><tr><th>Class</th><th>Evidence</th><th>Start → end</th></tr></thead>
     <tbody>
-      <tr><td><span class="swatch fam-collision"></span>accident</td><td>Two road users touch (feet within one size, boxes overlapping) while one was moving; within about a second one of them loses at least half its speed abruptly (not a gradual queue stop) or is deflected; afterwards they come to rest near each other. A pedestrian whose box flips from upright to lying counts as an impact.</td><td>first contact → both at rest or gone</td></tr>
-      <tr><td><span class="swatch fam-collision"></span>near_miss</td><td>Constant-velocity prediction says two road users will meet within 2 s; one brakes hard (sustained ≥ 40 % speed drop) or swerves ≥ 25°; they never touch.</td><td>onset of braking/swerve → apart again</td></tr>
-      <tr><td><span class="swatch fam-signal"></span>red_light</td><td>A vehicle's front crosses a stop line at speed while that approach is red: the traffic light in view is red, or another vehicle in an adjacent lane waits at the line before and after.</td><td>front crosses line → leaves intersection/frame</td></tr>
+      <tr><td><span class="swatch fam-collision"></span>accident</td><td>Two reliably tracked road users (large enough, not on the far road, no box jumps) touch while one was moving steadily; within about a second it loses at least half its speed abruptly (not a gradual queue stop), optionally deflected; a party that was moving comes to rest near the other. A pedestrian whose box flips from upright to lying counts as an impact.</td><td>first contact → both at rest or gone</td></tr>
+      <tr><td><span class="swatch fam-collision"></span>near_miss</td><td>Constant-velocity prediction says two reliably tracked road users will meet within 2 s; one brakes hard (sustained ≥ 40 % speed drop) or swerves ≥ 35° and back (a turn is not a swerve); they never touch. Same-direction pairs only count at very close range.</td><td>onset of braking/swerve → apart again</td></tr>
+      <tr><td><span class="swatch fam-signal"></span>red_light</td><td>A vehicle's front crosses a stop line at speed while that approach is red: the traffic light in view is red, or at least two other vehicles wait at the line before and after. A steady stream of crossings means green.</td><td>front crosses line → leaves intersection/frame</td></tr>
       <tr><td><span class="swatch fam-signal"></span>stop_line</td><td>A vehicle stops with its front 0.3–2.5 sizes past the stop line during a red phase.</td><td>stops → queue moves (green)</td></tr>
       <tr><td><span class="swatch fam-signal"></span>solid_line_crossing</td><td>Both bottom corners of the box pass from one side of a drawn solid line to the other.</td><td>first corner crosses → both across</td></tr>
-      <tr><td><span class="swatch fam-manoeuvre"></span>wrong_way</td><td>Moving at speed for ≥ 1.5 s against the learned lane direction (≥ 125° off), over at least 1.5 sizes of travel.</td><td>enters against the flow → back or out of frame</td></tr>
-      <tr><td><span class="swatch fam-manoeuvre"></span>illegal_u_turn</td><td>Heading turns ≥ 150° in one sense within 20 s on the carriageway, outside zones drawn as U-turn allowed.</td><td>starts turning → heading stable</td></tr>
-      <tr><td><span class="swatch fam-manoeuvre"></span>illegal_turn</td><td>A 45–140° turn that matches a drawn prohibited movement (from-zone → to-zone).</td><td>starts turning → completes</td></tr>
-      <tr><td><span class="swatch fam-pedestrian"></span>jaywalking</td><td>A pedestrian's feet on the carriageway (and well inside it for a while) outside any crossing, ≥ 1.2 s.</td><td>steps onto road → leaves it</td></tr>
-      <tr><td><span class="swatch fam-pedestrian"></span>failure_to_yield</td><td>A vehicle drives through a crossing without slowing while a pedestrian is on it, within five vehicle sizes.</td><td>enters crossing → leaves it</td></tr>
+      <tr><td><span class="swatch fam-manoeuvre"></span>wrong_way</td><td>Moving at speed for ≥ 3 s against the learned lane direction (≥ 125° off), over at least 4 sizes of travel, on a reliable track.</td><td>enters against the flow → back or out of frame</td></tr>
+      <tr><td><span class="swatch fam-manoeuvre"></span>illegal_u_turn</td><td>Heading turns ≥ 150° in one sense within 20 s on the carriageway, on a reliable track (not tiny, not cut off by the frame, no identity jump), outside zones drawn as U-turn allowed.</td><td>starts turning → heading stable</td></tr>
+      <tr><td><span class="swatch fam-manoeuvre"></span>illegal_turn</td><td>A 45–140° turn that matches a drawn prohibited movement (from-zone → to-zone). Legality depends on signs the camera cannot read, so without drawn rules no turn is flagged.</td><td>starts turning → completes</td></tr>
+      <tr><td><span class="swatch fam-pedestrian"></span>jaywalking</td><td>A pedestrian's feet on the carriageway (and well inside it for a while), more than two body widths from any crosswalk, ≥ 1.2 s.</td><td>steps onto road → leaves it</td></tr>
+      <tr><td><span class="swatch fam-pedestrian"></span>failure_to_yield</td><td>A vehicle drives through a crossing without slowing while a pedestrian walks across its path, just ahead of or beside it (within about a lane).</td><td>enters crossing → leaves it</td></tr>
       <tr><td><span class="swatch fam-state"></span>stopped_vehicle</td><td>Stationary ≥ 10 s on the carriageway, nobody stationary right ahead, not in congestion, not at a stop line (there it must wait longer than any red phase), not where vehicles routinely park.</td><td>stops → moves again or removed</td></tr>
       <tr><td><span class="swatch fam-state"></span>congestion</td><td>In one traffic stream (all lanes of a direction), at least half the usual peak number of vehicles, ≥ 80 % of them crawling, for ≥ 40 s.</td><td>queue stops → queue clears</td></tr>
-      <tr><td><span class="swatch fam-state"></span>road_obstacle</td><td>An animal on the carriageway, or a region that differs from the background for ≥ 5 s while no detected road user covers it.</td><td>appears → removed</td></tr>
+      <tr><td><span class="swatch fam-state"></span>road_obstacle</td><td>An animal on the carriageway. (Regions that differ from the background with no detection on them are available but off: at this junction they were queued cars the detector missed.)</td><td>appears → removed</td></tr>
       <tr><td><span class="swatch fam-state"></span>fire_smoke</td><td>Very bright orange-red pixels that are not in the background, not on a moving vehicle and flicker; or growing grey textureless regions near the road.</td><td>first visible → gone or end of video</td></tr>
     </tbody>
   </table>
@@ -91,13 +96,14 @@
     Four cues are computed from the current tracks only and fused as 1 − ∏(1 − cue):</p>
   <div class="grid grid-2">
     <div class="card"><h3>Conflict</h3><p class="muted">For closing pairs, time and distance of closest approach under constant velocity.
-      Risk ≈ 0.5 at 1.5 s to a near-zero miss distance, rising towards 0.8 at 0.6 s.</p></div>
-    <div class="card"><h3>Hard braking</h3><p class="muted">A vehicle losing half its speed within a second while another road user is within three sizes.</p></div>
-    <div class="card"><h3>Wrong way</h3><p class="muted">A vehicle against the lane direction learned from the samples (used only if the first frame matches the calibrated view).</p></div>
+      Only head-on geometry counts (predicted miss distance ≤ half a size; passing in the next lane does not). Risk ≈ 0.5 at 1.2 s, rising as contact nears. Far-road boxes and ordinary same-lane following are ignored.</p></div>
+    <div class="card"><h3>Hard braking</h3><p class="muted">A vehicle losing half its speed within a second with another road user just ahead of it; capped so braking alone never raises an alarm.</p></div>
+    <div class="card"><h3>Wrong way</h3><p class="muted">A vehicle against the learned lane direction for ≥ 3 s (only when the first frame registers to the reference view).</p></div>
     <div class="card"><h3>Impact</h3><p class="muted">Boxes touching while one party stops abruptly: the crash itself, which keeps the alarm from flickering.</p></div>
   </div>
-  <p class="section-intro" style="margin-top:12px">The fused score rises immediately and, once above 0.5, is held for 1.5 s before
-    decaying, so one near collision gives one alarm rather than a burst.</p>
+  <p class="section-intro" style="margin-top:12px">An alarm (score ≥ 0.5) needs the fused cues above 0.5 on two consecutive analysed
+    frames; a one-frame spike keeps its rank (0.49) for average precision but raises no alarm. Once raised, the score is
+    held for 1.5 s before decaying, so one near collision gives one alarm rather than a burst.</p>
 
   <h2>Engineering</h2>
   <div class="grid grid-2">

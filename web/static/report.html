@@ -15,11 +15,12 @@
 
   <h2>What we built</h2>
   <p>A single command (<code>python run_submission.py --videos DIR --out predictions.json</code>) runs two independent
-    chains per video. <strong>Part A</strong> detects road users with a COCO-pretrained YOLO11, tracks them, and applies one
-    rule module per family of event classes to the trajectories, read against a model of the fixed camera (carriageway,
-    lane directions, stop lines, crossings) that was learned without labels from the sample videos.
+    chains per video. <strong>Part A</strong> detects road users with a COCO-pretrained YOLO11, tracks them, maps the video
+    onto a reference view of the junction (the camera is re-aimed between recordings), and applies one rule module per
+    family of event classes to the trajectories, read against a model of the junction (carriageway, lane directions,
+    stop lines learned from queues, traced crosswalks) that was learned without labels from the sample videos.
     <strong>Part B</strong> runs its own detector-plus-tracker strictly causally and turns time-to-collision, hard braking,
-    wrong-way motion and contact into a calibrated risk score. Details on the <a href="approach.html">approach page</a>.</p>
+    wrong-way motion and contact into a risk score. Details on the <a href="approach.html">approach page</a>.</p>
 
   <h2>Scores on our dev labels</h2>
   <p class="section-intro">Computed with the organisers' <code>evaluate.py</code>, unchanged, against our own labels of the
@@ -27,29 +28,81 @@
     are optimistic for the hidden test set.</p>
   <div id="scores"><div class="empty">Dev labels are being written; scores appear here once they are complete.</div></div>
 
+  <h2>Error analysis: the real junction</h2>
+  <p class="section-intro">Our rules were first tuned on short public clips of other roads. On the organisers' camera
+    (a busy signalised junction in Tashkent, filmed in 4K from a building) the first run reported <strong>42 events in
+    two minutes</strong> of ordinary traffic. We reviewed every detection class on contact sheets (three frames per
+    event, the tracks involved drawn in) and fixed the causes, not the thresholds. Two findings changed the design.</p>
+
+  <div class="grid grid-2">
+    <figure class="figure"><img src="data/analysis/views.jpg" alt="The four sample videos side by side: the same junction, framed slightly differently" loading="lazy">
+      <figcaption><strong>The camera is re-aimed between recordings.</strong> The four samples show the same junction with
+        shifts of up to 62 px and 2 % zoom, so a map learned in pixels did not fit two of them.</figcaption></figure>
+    <figure class="figure"><img src="data/analysis/registration.jpg" alt="Three videos warped onto the reference view and blended with it: markings line up" loading="lazy">
+      <figcaption><strong>Fix: view registration.</strong> Each video's background is matched to a reference view (SIFT on
+        contrast-equalised grey images, RANSAC homography, 115–2000 inliers even from dusk to day); rules run in reference
+        coordinates. The blends show crosswalks and the gantry aligned.</figcaption></figure>
+    <figure class="figure"><img src="data/analysis/fp_identity_switch.jpg" alt="Contact sheet: a track jumps from a white car to the dark car behind it in a stopped queue" loading="lazy">
+      <figcaption><strong>False accident: identity switch in a queue.</strong> Track 181 jumps from a white car to the dark
+        car behind it; the jump read as a sudden movement and a stop. Fix: the tracker's fallback gate scales with the
+        track's own motion, and collision rules reject boxes that jump.</figcaption></figure>
+    <figure class="figure"><img src="data/analysis/fp_perspective.jpg" alt="Contact sheet: a bus in the foreground overlaps a turning car on the far road" loading="lazy">
+      <figcaption><strong>False accident: perspective overlap.</strong> A bus in the foreground and a car turning on the far
+        road overlap on screen. Fix: distances are measured in the smaller party's size (capped), a turn is not an impact
+        without a real loss of speed, and the far road is excluded from collision analysis.</figcaption></figure>
+    <figure class="figure"><img src="data/analysis/scene_layers.jpg" alt="Learned carriageway, lane directions, crossings, queue heads and stop lines over the reference view" loading="lazy">
+      <figcaption><strong>Learned junction.</strong> Carriageway (blue), lane directions (green), queue heads (magenta) and
+        stop lines (red) fitted along the heads, so they follow the painted line in this oblique view.</figcaption></figure>
+    <figure class="figure"><img src="data/analysis/crosswalks.jpg" alt="The three crosswalks traced on the reference view" loading="lazy">
+      <figcaption><strong>Traced crosswalks.</strong> Learned crossing areas were too coarse for jaywalking; the three
+        crosswalks are traced once in the reference view and mapped to every framing.</figcaption></figure>
+  </div>
+
+  <h3>Detections on the four sample videos (18 min), before and after the review</h3>
+  <div class="card table-wrap"><table>
+    <thead><tr><th>Class</th><th class="num">Before</th><th class="num">After</th><th>Main cause and fix</th></tr></thead>
+    <tbody>
+      <tr><td>illegal_turn</td><td class="num">21</td><td class="num">0</td><td>"Rare movements" were tracking artefacts; now only against drawn no-turn rules</td></tr>
+      <tr><td>stopped_vehicle</td><td class="num">13</td><td class="num">1</td><td>Queues at red lights; fixed by registration (learned waiting areas apply to every framing)</td></tr>
+      <tr><td>road_obstacle</td><td class="num">13</td><td class="num">0</td><td>Background-difference blobs were queued cars the detector missed; now opt-in</td></tr>
+      <tr><td>failure_to_yield</td><td class="num">13</td><td class="num">7</td><td>Now requires a walking pedestrian crossing the vehicle's path, within about a lane</td></tr>
+      <tr><td>jaywalking</td><td class="num">13</td><td class="num">3</td><td>People walk on and beside the stripes: traced crosswalks plus a two-body-width margin</td></tr>
+      <tr><td>near_miss</td><td class="num">9</td><td class="num">1</td><td>Turns counted as swerves; far-away boxes; the swerve must return to its heading</td></tr>
+      <tr><td>illegal_u_turn</td><td class="num">5</td><td class="num">0</td><td>Tiny far cars, frame-edge boxes and identity switches: shared track-quality check</td></tr>
+      <tr><td>wrong_way</td><td class="num">4</td><td class="num">0</td><td>Cars crossing the lanes while turning; must be sustained (3 s, 4 sizes)</td></tr>
+      <tr><td>accident</td><td class="num">2</td><td class="num">0</td><td>Identity switches and perspective overlap (figures above)</td></tr>
+      <tr><td>red_light / stop_line</td><td class="num">0</td><td class="num">1</td><td>Needed learned stop lines (queue heads were under-counted); one waiting car is not proof of red</td></tr>
+      <tr><td>congestion</td><td class="num">0</td><td class="num">1</td><td>–</td></tr>
+      <tr><td><strong>Total</strong></td><td class="num"><strong>93</strong></td><td class="num"><strong>14</strong></td><td>"Before" is after the first calibration on all four samples</td></tr>
+    </tbody></table></div>
+  <p class="small muted">Part B on the same videos: frames with risk ≥ 0.5 on C3905 fell from 64 % to under 2 %, and
+    alarms (official merging) on normal traffic from 10 to 1 in 5.7 min of C3896, by requiring a head-on predicted
+    approach, ignoring the far road, and two consecutive analysed frames before an alarm. The one plausible near miss
+    in the samples (C3896, 1:34) still ranks well above ordinary traffic.</p>
+
   <h2>What worked</h2>
   <ul>
+    <li><strong>Reviewing every class on contact sheets.</strong> Three frames per detection with the tracks drawn in showed
+      the cause of each false alarm at a glance; almost none of them were threshold problems.</li>
+    <li><strong>Registering the view instead of assuming a fixed camera.</strong> One homography per video makes the learned
+      map and the traced zones valid for every framing, and costs under a second.</li>
     <li><strong>Learning the road layout from trajectories.</strong> A per-cell lane-direction histogram (one vote per vehicle)
-      gives a clean definition of "against the traffic" without drawing a single lane. Rasterising each trajectory between
-      analysed frames was essential: fast cars otherwise leave holes in the map.</li>
-    <li><strong>Measuring kinematics in object sizes.</strong> Speeds and gaps divided by the object's own size behave the
-      same near and far from the camera, so one threshold works across the frame.</li>
+      gives a clean definition of "against the traffic"; stop lines come from where the first car of each lane waits.</li>
     <li><strong>A precision-first stance.</strong> The macro F1 averages classes in the test set <em>or</em> in our
-      predictions, so a class we predict wrongly costs as much as a class we miss. Every rule requires sustained evidence.</li>
-    <li><strong>Test-driven rules.</strong> Each rule has a synthetic-trajectory test with the expected start and end; the
-      tests caught a tracker bug (fast new tracks restarted every frame) and the map-hole bug before any real video was used.</li>
+      predictions, so a class we predict wrongly costs as much as a class we miss.</li>
+    <li><strong>Test-driven rules.</strong> Each rule and each fix has a synthetic-trajectory test (38 tests).</li>
   </ul>
 
   <h2>What did not work (yet)</h2>
   <ul>
-    <li><strong>Boundaries at IoU 0.7.</strong> Our start and end times inherit the analysis rate and smoothing (±0.2 s) and,
-      for signal events, the uncertainty of when a phase changes. The 0.7 threshold is where we lose most.</li>
-    <li><strong>Small, far objects.</strong> Boxes a few dozen pixels wide jitter by a large fraction of their size, which reads
-      as violent acceleration; we exclude them from accident and near-miss analysis, so events far from the camera are missed.</li>
-    <li><strong>Signal state without seeing the lights.</strong> When the signal heads are not visible, a red phase is only
-      known while a queue waits at the line; a red-light runner on an empty approach is invisible to us.</li>
-    <li><strong>Fire, smoke and obstacles</strong> rely on colour and background differences and are kept deliberately
-      strict; on the samples they are more likely to miss than to fire.</li>
+    <li><strong>No depth.</strong> Boxes that overlap on screen may be far apart on the road; we cope with size caps and by
+      ignoring the far road, which also means events there are missed.</li>
+    <li><strong>Boundaries at IoU 0.7.</strong> Start and end times inherit the analysis rate and smoothing (±0.2 s) and,
+      for signal events, the uncertainty of when a phase changes.</li>
+    <li><strong>Signal state.</strong> The signal heads are small and often not visible, so red is mostly inferred from
+      queues; a red-light runner on an empty approach is invisible to us.</li>
+    <li><strong>Rules that depend on signs.</strong> Whether a turn or U-turn is legal is written on signs the camera cannot
+      read; without drawn rules we do not predict illegal turns.</li>
   </ul>
 
   <h2>What we would do next</h2>
@@ -62,7 +115,16 @@
   </ul>
 
   <h2>Runtime</h2>
-  <div id="runtime"><div class="empty">Runtime figures appear once the sample videos are processed.</div></div>
+  <p class="section-intro">The unchanged harness on the 4K original of C3905 (127.6 s, 3840×2160, 10-bit 4:2:2 H.264 at
+    140 Mbit/s), on a 4-core CPU <em>without a GPU</em>. The limit is 3× the video length; the target machine (8 cores,
+    T4) is faster for both decoding and detection.</p>
+  <div class="card table-wrap"><table>
+    <thead><tr><th>Stage</th><th class="num">Seconds</th><th class="num">× real time</th></tr></thead>
+    <tbody>
+      <tr><td>Part A (decode, detect, track, rules)</td><td class="num">106.5</td><td class="num">0.83</td></tr>
+      <tr><td>Part B (harness decodes every frame; causal risk)</td><td class="num">160.2</td><td class="num">1.26</td></tr>
+      <tr><td><strong>Total</strong></td><td class="num"><strong>266.7</strong></td><td class="num"><strong>2.09</strong></td></tr>
+    </tbody></table></div>
 </main>
 <script type="module">
   import { CLASSES, chrome, className, el, getJSON } from "./js/common.js";
@@ -88,15 +150,6 @@
         el("thead", {}, el("tr", {}, el("th", {}, "Class"), el("th", { class: "num" }, "F1@0.3"), el("th", { class: "num" }, "F1@0.5"),
           el("th", { class: "num" }, "F1@0.7"), el("th", { class: "num" }, "Mean"), el("th", { class: "num" }, "TP/FP/FN @0.5"))),
         el("tbody", {}, rows))));
-  }).catch(() => {});
-  getJSON("data/index.json").then((idx) => {
-    if (!idx.videos.length) return;
-    $("runtime").replaceChildren(el("div", { class: "card table-wrap" }, el("table", {},
-      el("thead", {}, el("tr", {}, el("th", {}, "Video"), el("th", { class: "num" }, "Length"), el("th", { class: "num" }, "Part A"),
-        el("th", { class: "num" }, "× real time"), el("th", {}, "Device"))),
-      el("tbody", {}, idx.videos.map((v) => el("tr", {}, el("td", {}, v.video), el("td", { class: "num" }, `${v.duration.toFixed(0)} s`),
-        el("td", { class: "num" }, `${v.timings.total_sec} s`), el("td", { class: "num" }, v.timings.realtime_factor.toFixed(2)),
-        el("td", {}, v.timings.device)))))));
   }).catch(() => {});
 </script>
 </body>

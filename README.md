@@ -5,9 +5,11 @@ WIUT Hackathon 2026, Computer Vision track. Given a video from one fixed CCTV vi
 * **Part A** reports every traffic event as `[start_sec, end_sec, label]` for the 14 official classes;
 * **Part B** returns, frame by frame and using only past frames, the probability that an accident starts within 5 s.
 
-A COCO-pretrained YOLO11 detector and a ByteTrack-style tracker turn the video into trajectories; a model of
-the fixed camera, learned without labels from the sample videos, says where the carriageway is, which way each
-lane flows and where traffic queues; one rule module per family of classes reads trajectories against it.
+A COCO-pretrained YOLO11 detector and a ByteTrack-style tracker turn the video into trajectories. The camera is
+re-aimed between recordings, so each video is registered to a reference view of the junction (SIFT + RANSAC
+homography on its background). A model of the junction, learned without labels from the sample videos, says
+where the carriageway is, which way each lane flows and where traffic queues (stop lines); the crosswalks are traced
+once in the reference view. One rule module per family of classes reads the trajectories against it.
 
 Website (team, approach, EDA, results, live demo, report): see `web/` and [web/DEPLOY.md](web/DEPLOY.md).
 
@@ -36,6 +38,7 @@ python evaluate.py --pred predictions.json --validate-only
 ```
 frames ──► YOLO11 detector ──► ByteTrack-style tracker ──► trajectories (stitched, smoothed, sizes/s)
  (8 fps GPU / 5 fps CPU)       (learned, COCO)              (classical)                   │
+                                                              register the view to the reference (homography)
                                                                                           ▼
   1 fps pixel side channels ─────────────────────────►  rule modules per class  ◄── scene model of the camera
   (background, static objects, fire, smoke, lights)          (hand-written)         (learned from the samples
@@ -53,6 +56,7 @@ Part B (causal):  frame ──► detector (6 fps) ──► online tracker ─�
 | Road-user and traffic-light detection | learned: YOLO11-m (GPU, 1280 px) / YOLO11-n (CPU, 640 px), COCO-pretrained, not fine-tuned | `src/roadwatch/detector.py` |
 | Tracking | classical: Kalman filter + two-stage association (ByteTrack), class-group gating, centre-distance fallback | `tracker.py` |
 | Trajectories | classical: fragment stitching, rider suppression, local-linear smoothing, speeds in object sizes/s | `tracks.py` |
+| View registration | classical: SIFT on CLAHE-equalised background, RANSAC homography to the reference view (rejects other cameras); rules run in reference coordinates, overlays are mapped back | `register.py` |
 | Scene model | learned from data without labels: carriageway, per-cell lane direction, streams, stop zones, queue heads → stop lines, movement statistics; hand-drawn zones (`weights/zones.json`) override | `scene.py` |
 | Signal state | rule-based: queue heads waiting at the line; traffic-light colour (HSV) when the heads are visible | `signals.py` |
 | Event classes | rule-based, one module per family | `events/*.py` |
@@ -61,6 +65,17 @@ Part B (causal):  frame ──► detector (6 fps) ──► online tracker ─�
 
 Per-class rules and their start/end conventions are documented on the website's Approach page and in the module
 docstrings. Every rule prefers precision: a class predicted but absent from the test set adds a zero to the macro F1.
+
+### Findings on the real junction
+
+The first run on the organisers' camera reported 42 events in two minutes of ordinary traffic. Reviewing every
+class on contact sheets (three frames per event, tracks drawn in) showed the causes: identity switches between
+queued cars, boxes that overlap in perspective without touching, turns read as swerves or wrong-way driving,
+coarse crossing areas, and a camera re-aimed between recordings. The fixes (motion-scaled tracker gate, track-quality
+checks, view registration, traced crosswalks, stop lines fitted along the waiting cars, stricter signal evidence)
+brought the four samples from 93 to 14 detections; the website's report page has the per-class table and figures.
+Two sources that fired only on artefacts here are kept but off by default: statistically rare movements as illegal
+turns (`EventCfg.it_rare_movements`) and background-difference obstacles (`EventCfg.ob_static_blobs`).
 
 ### Time budget
 
@@ -99,8 +114,13 @@ python tools/evaluate_dev.py --videos samples --labels labels/dev_labels.json \
     --report web/static/data/dev_scores.json          # our labels, official metric, class confusion
 ```
 
-Road-layout zones that cannot be learned reliably (crosswalks, solid lines, prohibited turns, where U-turns are
-allowed) are drawn once in the website's scene editor (`web/static/scene.html`) and saved as `weights/zones.json`.
+`tools/calibrate.py` uses the first video (or `--reference NAME`) as the reference view and registers the others to
+it; `weights/scene_background.jpg` is that view's background. Road-layout zones that cannot be learned reliably
+(crosswalks, solid lines, prohibited turns, where U-turns are allowed) are drawn once on it in the website's scene
+editor (`web/static/scene.html`) and saved as `weights/zones.json`; the junction's three crosswalks are traced there.
+The organisers' files are 4K 10-bit 4:2:2 (≈140 Mbit/s); for development we used 1080p H.264 copies
+(`ffmpeg -i IN -an -vf scale=1920:1080 -c:v libx264 -crf 18 OUT`), which give the same geometry because the
+pipeline works at a 1920-px working width either way.
 Dev labels are made with the in-browser annotator (`web/static/annotate.html`), which exports the official
 ground-truth format. Perception is cached in `.cache/perception` when `ROADWATCH_CACHE` is set (the tools set it),
 so re-scoring after a rule change takes seconds.

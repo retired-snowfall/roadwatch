@@ -681,11 +681,11 @@ async function loadSamples() {
 }
 
 async function openSample(v) {
-  urls.set(v.video, `data/${encodeURIComponent(v.id)}/preview.mp4`);
+  urls.set(v.video, `data/samples/${encodeURIComponent(v.id)}/preview.mp4`);
   const e = entry(v.video);
   if (v.fps) e.fps = round2(v.fps);
   try {
-    const r = await fetch(`data/${encodeURIComponent(v.id)}/result.json`);
+    const r = await fetch(`data/samples/${encodeURIComponent(v.id)}/result.json`);
     if (r.ok) {
       const res = await r.json();
       preds ||= { team: "roadwatch (this site)", videos: {} };

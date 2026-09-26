@@ -1,0 +1,44 @@
+[
+ {
+  "video": "C3896.MP4",
+  "video_id": "C3896",
+  "t": 86.0,
+  "what": "Accident reported between two cars stopped in a queue (fixed)",
+  "why": "Identity switch: the track jumped from one queued car to the car behind it, which read as a sudden move and stop. The tracker's fallback gate now scales with the track's own motion, and collision rules reject jumping boxes."
+ },
+ {
+  "video": "C3896.MP4",
+  "video_id": "C3896",
+  "t": 206.6,
+  "what": "Accident reported between a bus and a car on the far road (fixed)",
+  "why": "Perspective: the boxes overlap on screen but the vehicles are metres apart. Distances are now capped by the smaller party's size, a turn is no impact without a loss of speed, and the far road is excluded."
+ },
+ {
+  "video": "C3896.MP4",
+  "video_id": "C3896",
+  "t": 88.2,
+  "what": "Illegal turn reported for a distant car (fixed)",
+  "why": "Tracking noise on a small box looked like a rarely seen movement. Illegal turns now need a drawn no-turn rule; turn rules require a reliable track."
+ },
+ {
+  "video": "C3896.MP4",
+  "video_id": "C3896",
+  "t": 96.6,
+  "what": "Jaywalking reported for a pedestrian walking along the crosswalk (fixed)",
+  "why": "The learned crossing area missed the less used end of the zebra. The crosswalks are now traced, with a two-body-width margin."
+ },
+ {
+  "video": "C3896.MP4",
+  "video_id": "C3896",
+  "t": 268.6,
+  "what": "Red light reported for cars flowing on green (fixed)",
+  "why": "One car waiting at the line (probably to turn) was taken as proof of red. Without a visible light two waiting cars are needed, and a steady stream of crossings means green."
+ },
+ {
+  "video": "C3896.MP4",
+  "video_id": "C3896",
+  "t": 55.7,
+  "what": "Danger alarm while one car passes in front of another (open)",
+  "why": "Without depth, boxes that overlap on screen are predicted to meet. Part B now needs a head-on approach on two consecutive frames, which removed 9 of 10 such alarms in this video; this one remains."
+ }
+]
