@@ -2,7 +2,7 @@
 # One-command deployment of the website + live demo on a fresh Ubuntu 22.04/24.04 server
 # (any cloud: 4 vCPU / 8 GB RAM / 40 GB disk recommended, no GPU, inbound TCP 22, 80, 443 open).
 #
-#   curl -fsSL https://raw.githubusercontent.com/retired-snowfall/some_shi/main/web/deploy_vm.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/retired-snowfall/roadwatch/main/web/deploy_vm.sh | sudo bash
 #
 # It installs Docker, builds web/Dockerfile from the repository and serves it with automatic HTTPS
 # (Caddy + Let's Encrypt) at https://<public-ip>.sslip.io, or at DOMAIN if you have one pointing
@@ -10,7 +10,7 @@
 # Re-run the same command to update to the latest commit.
 set -euo pipefail
 
-REPO=${REPO:-https://github.com/retired-snowfall/some_shi.git}
+REPO=${REPO:-https://github.com/retired-snowfall/roadwatch.git}
 BRANCH=${BRANCH:-main}
 DIR=${DIR:-/opt/roadwatch}
 
