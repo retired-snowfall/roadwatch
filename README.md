@@ -195,6 +195,8 @@ uvicorn web.app:app --port 7860      # website + live demo at http://localhost:7
 
 ## Team
 
+Team **Rebellion** (WIUT Hackathon 2026, computer-vision track).
+
 | Member | Role | Contributions |
 |---|---|---|
 | Timur Tolipov | Perception & risk | detector and tracker integration, time budget and GPU profile, Part B risk estimator |
