@@ -34,7 +34,7 @@ One-time setup:
 2. Clone it, copy this repository into it, and make the web Dockerfile the Space's root Dockerfile:
    ```bash
    git clone https://huggingface.co/spaces/<user>/roadwatch && cd roadwatch
-   rsync -a --exclude .git --exclude samples --exclude .cache ../some_shi/ .
+   rsync -a --exclude .git --exclude samples --exclude .cache ../roadwatch/ .
    cp web/Dockerfile Dockerfile
    printf -- '---\ntitle: roadwatch\nsdk: docker\napp_port: 7860\n---\n' | cat - README.md > README.tmp && mv README.tmp README.md
    git lfs install && git lfs track "*.mp4" "*.pt" && git add .gitattributes

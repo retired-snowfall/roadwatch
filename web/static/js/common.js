@@ -110,7 +110,7 @@ export function chrome() {
   document.body.prepend(header);
   const footer = el("footer", { class: "site-footer" });
   footer.innerHTML = `<div class="inner"><span>roadwatch — traffic events from a fixed CCTV camera</span>
-    <a href="https://github.com/retired-snowfall/some_shi">Repository</a>
+    <a href="https://github.com/retired-snowfall/roadwatch">Repository</a>
     <a href="data/predictions_samples.json">predictions_samples.json</a>
     <a href="report.html">Technical report</a></div>`;
   document.body.append(footer);

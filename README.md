@@ -11,7 +11,7 @@ homography on its background). A model of the junction, learned without labels f
 where the carriageway is, which way each lane flows and where traffic queues (stop lines); the crosswalks are traced
 once in the reference view. One rule module per family of classes reads the trajectories against it.
 
-**Website and live demo: https://anubis3228-roadwatch.hf.space** (team, approach, EDA, results, report, and a demo
+**Website and live demo: https://roadwatchwiut-roadwatch.hf.space** (team, approach, EDA, results, report, and a demo
 that runs the pipeline on an uploaded clip). Source in `web/`; deployment in [web/DEPLOY.md](web/DEPLOY.md).
 
 ## Run it
