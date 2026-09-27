@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Team</title>
+  <meta name="description" content="Team Rebellion: who built roadwatch, who did what.">
+  <link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<main>
+  <h1 id="team-name">Team</h1>
+  <p class="lead" id="tagline"></p>
+  <div class="grid grid-3" id="members"><div class="empty">Loading…</div></div>
+  <h2>Who did what</h2>
+  <div class="card table-wrap" id="matrix"></div>
+</main>
+<script type="module">
+  import { chrome, el, getJSON } from "./js/common.js";
+  chrome();
+  const $ = (id) => document.getElementById(id);
+  const initials = (n) => n.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+  getJSON("data/team.json").then((t) => {
+    $("team-name").textContent = `Team ${t.team}`;
+    $("tagline").textContent = t.tagline || "";
+    $("members").replaceChildren(...t.members.map((m) => el("article", { class: "card team-card" },
+      el("div", { class: "avatar", "aria-hidden": "true" }, initials(m.name)),
+      el("h3", {}, m.name), el("div", { class: "role" }, m.role),
+      el("ul", { class: "small" }, m.did.map((d) => el("li", {}, d))),
+      el("div", { class: "links" }, Object.entries(m.links).filter(([, u]) => u).map(([k, u]) => el("a", { href: u, rel: "noopener" }, k))),
+      ...(m.projects || []).map((p) => el("p", { class: "small" }, el("strong", {}, p.url ? el("a", { href: p.url, rel: "noopener" }, p.name) : p.name),
+        el("br"), el("span", { class: "muted" }, p.about))))));
+    const areas = [...new Set(t.members.flatMap((m) => m.did))];
+    $("matrix").replaceChildren(el("table", {}, el("thead", {}, el("tr", {}, el("th", {}, "Work item"),
+      t.members.map((m) => el("th", {}, m.name.split(" ")[0])))),
+      el("tbody", {}, areas.map((a) => el("tr", {}, el("td", {}, a),
+        t.members.map((m) => el("td", {}, m.did.includes(a) ? "✓ lead" : "")))))));
+  });
+</script>
+</body>
+</html>

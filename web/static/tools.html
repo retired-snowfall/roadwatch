@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roadwatch labelling tools</title>
+<meta name="description" content="Browser tools for labelling the sample videos and drawing the fixed camera's road layout.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="css/site.css">
+<style>
+  .tool-card { display: flex; flex-direction: column; gap: 10px; }
+  .tool-card h2 { font-size: 1.25rem; margin: 0; }
+  .tool-card h2 a { color: var(--ink); text-decoration: none; }
+  .tool-card h2 a:hover { text-decoration: underline; }
+  .tool-card p { margin: 0; color: var(--ink-2); }
+  .tool-card ul { margin: 0; padding-left: 1.1em; color: var(--ink-2); font-size: 0.92rem; }
+  .tool-card .btn { align-self: flex-start; margin-top: auto; }
+  .tool-card .icon { width: 28px; height: 28px; color: var(--accent); }
+  .why { margin-top: 24px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Tools</h1>
+  <p class="lead">Two small in-browser tools we use to measure and tune the detector. Nothing is uploaded: videos and images stay on your machine.</p>
+
+  <div class="grid grid-2">
+    <section class="card tool-card">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M3 20h18M7 20v-2M12 20v-3M17 20v-2"/><path d="M10 8l4 2-4 2z" fill="currentColor"/></svg>
+      <h2><a href="annotate.html">Annotate a video</a></h2>
+      <p>Build a dev set in the official ground-truth format.</p>
+      <ul>
+        <li>Open local sample videos, pick one of the 14 classes, mark start and end with <kbd>S</kbd> / <kbd>E</kbd>.</li>
+        <li>Swimlane timeline, overlap and range checks, predictions overlay for comparison.</li>
+        <li>Exports <code>{"sample_001.mp4": {"duration", "fps", "events"}}</code>.</li>
+      </ul>
+      <a class="btn primary" href="annotate.html">Open the annotator</a>
+    </section>
+    <section class="card tool-card">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20L9 4M20 20L15 4"/><path d="M7 14h10"/><path d="M12 14v-4M10.5 11.5L12 10l1.5 1.5"/></svg>
+      <h2><a href="scene.html">Scene editor</a></h2>
+      <p>Draw crosswalks, stop lines, solid lines and no-turn rules for the fixed camera.</p>
+      <ul>
+        <li>Draw on a background frame; coordinates are stored normalised to [0,&nbsp;1].</li>
+        <li>Stop lines carry the travel direction of the approaching traffic.</li>
+        <li>Exports <code>weights/zones.json</code>, read by the pipeline.</li>
+      </ul>
+      <a class="btn primary" href="scene.html">Open the scene editor</a>
+    </section>
+  </div>
+
+  <section class="why">
+    <h2>Why these exist</h2>
+    <p class="section-intro">The organisers score submissions on a hidden, labelled test set, so the only way to measure F1 before submitting is to label the sample videos ourselves in exactly their format. The annotator produces that dev set, and the evaluation script compares our predictions against it. The camera is fixed, so the road layout — crossings, stop lines, solid lines, prohibited turns — only has to be drawn once and is reused for every video.</p>
+  </section>
+</main>
+<script type="module">
+  import { chrome } from "./js/common.js";
+  chrome();
+</script>
+</body>
+</html>

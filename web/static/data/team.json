@@ -1,0 +1,39 @@
+{
+  "team": "Rebellion",
+  "tagline": "Three people, one fixed camera, fourteen kinds of trouble.",
+  "members": [
+    {
+      "name": "Timur Tolipov",
+      "role": "Perception & risk",
+      "did": [
+        "Detector and tracker integration",
+        "Time budget and GPU profile",
+        "Part B risk estimator",
+        "Labelling the sample videos"
+      ],
+      "links": {}
+    },
+    {
+      "name": "Gavhar Muldashova",
+      "role": "Event rules & evaluation",
+      "did": [
+        "Rules for the 14 classes",
+        "Tuning on the dev labels",
+        "Error analysis",
+        "Labelling the sample videos"
+      ],
+      "links": {}
+    },
+    {
+      "name": "Komiljon Xamidov",
+      "role": "Website, EDA & deployment",
+      "did": [
+        "Website and live demo",
+        "EDA and visualisations",
+        "Hosting and deployment",
+        "Labelling the sample videos"
+      ],
+      "links": {}
+    }
+  ]
+}

@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Approach</title>
+  <meta name="description" content="How roadwatch works: detector, tracker, scene model of the fixed camera, rules per event class, causal risk estimator.">
+  <link rel="stylesheet" href="css/site.css">
+  <style>
+    .flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; counter-reset: stage; }
+    .flow .stage { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 12px 14px 12px 14px; border-top: 3px solid var(--axis); }
+    .flow .stage.learned { border-top-color: var(--accent); }
+    .flow .stage.rule { border-top-color: var(--fam-signal); }
+    .flow .stage h4 { margin: 0 0 4px; font-size: 1rem; }
+    .flow .stage h4::before { counter-increment: stage; content: counter(stage) " · "; color: var(--muted); }
+    .flow .stage p { margin: 0; font-size: 0.9rem; color: var(--ink-2); }
+    .flow .tag { float: right; font-size: 0.72rem; }
+    .keyline { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.85rem; color: var(--ink-2); margin: 8px 0 14px; }
+    .keyline span::before { content: ""; display: inline-block; width: 18px; height: 3px; margin-right: 6px; vertical-align: middle; }
+    .keyline .k-learned::before { background: var(--accent); }
+    .keyline .k-rule::before { background: var(--fam-signal); }
+    .keyline .k-classic::before { background: var(--axis); }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Approach</h1>
+  <p class="lead">A pretrained detector and a tracker turn the video into trajectories. A model of the fixed camera,
+    learned without labels from the sample videos, says where the carriageway is, which way each lane flows and where
+    traffic queues. One rule per event class reads trajectories against that model. A separate, strictly causal copy of
+    the perception stack estimates accident risk frame by frame.</p>
+
+  <h2>Pipeline</h2>
+  <div class="keyline"><span class="k-learned">learned (neural network or statistics from data)</span>
+    <span class="k-rule">hand-written rules</span><span class="k-classic">classical signal processing</span></div>
+  <div class="flow">
+    <div class="stage classic"><span class="tag pill">sampling</span><h4>Frames</h4>
+      <p>The camera writes 4K 10-bit video. The decoder skips frames no other frame depends on (2 of every 3), scales the rest to a fixed 1920-pixel working width in C, and runs in a background thread while the GPU detects. Analysis: 8 frames per second on GPU (5 on CPU).</p></div>
+    <div class="stage learned"><span class="tag pill">learned</span><h4>Detect</h4>
+      <p>YOLO11-m at 1280 px, FP16, batches of 8 (YOLO11-n at 640 px on CPU). COCO classes: people, bicycles, cars,
+        motorcycles, buses, trucks, animals, traffic lights.</p></div>
+    <div class="stage classic"><span class="tag pill">classical</span><h4>Track</h4>
+      <p>ByteTrack-style: Kalman filter, high/low-score two-stage matching, class-group gating, a centre-distance fallback
+        for fast objects, and 12 s survival for stationary objects hidden by passing traffic.</p></div>
+    <div class="stage classic"><span class="tag pill">classical</span><h4>Trajectories</h4>
+      <p>Fragments of one object are stitched, people riding a bicycle or motorcycle are not counted as pedestrians,
+        positions are smoothed with a local linear fit. Speed and acceleration are measured in object sizes per second (perspective-robust).</p></div>
+    <div class="stage classic"><span class="tag pill">classical</span><h4>Register the view</h4>
+      <p>The camera is re-aimed between recordings (up to 62 px and 2 % zoom on the samples). The video's background is
+        matched to the reference view with SIFT features and a RANSAC homography; trajectories are mapped into it, so the
+        learned map and the traced zones fit every framing.</p></div>
+    <div class="stage learned"><span class="tag pill">learned, no labels</span><h4>Scene model</h4>
+      <p>From all sample trajectories: carriageway mask, per-cell lane direction, traffic streams, where vehicles wait,
+        stop lines fitted along where the first car of each lane waits (different vehicles that drove in, waited and drove
+        off again, over several signal cycles), movement statistics. The junction's crosswalks are traced once in the
+        reference view; drawn solid lines and no-turn rules can be added the same way.</p></div>
+    <div class="stage classic"><span class="tag pill">classical</span><h4>Pixel side channels</h4>
+      <p>At 1 fps: median background, objects that appear and stay on the road, flickering fire-coloured pixels,
+        grey textureless smoke, traffic-light colour.</p></div>
+    <div class="stage rule"><span class="tag pill">rules</span><h4>Event rules</h4>
+      <p>One module per family of classes, each returning candidate segments with a confidence and the tracks that caused them.</p></div>
+    <div class="stage rule"><span class="tag pill">rules</span><h4>Segments</h4>
+      <p>Per class: merge fragments closer than 1 s, drop blips under 0.8 s, clip to the video. Same-class segments never overlap.</p></div>
+  </div>
+
+  <h2>Event rules</h2>
+  <p class="section-intro">Every rule is written against the annotation conventions (when an event starts and ends),
+    because segments are matched by temporal IoU up to 0.7. A class predicted but absent from the test set adds a zero
+    to the macro F1, so each rule prefers precision.</p>
+  <div class="card table-wrap">
+  <table>
+    <thead><tr><th>Class</th><th>Evidence</th><th>Start → end</th></tr></thead>
+    <tbody>
+      <tr><td><span class="swatch fam-collision"></span>accident</td><td>Two reliably tracked road users (large enough, not on the far road, no box jumps) touch while one was moving steadily; within about a second it loses at least half its speed abruptly (not a gradual queue stop), optionally deflected; a party that was moving comes to rest near the other. A pedestrian whose box flips from upright to lying counts as an impact.</td><td>first contact → both at rest or gone</td></tr>
+      <tr><td><span class="swatch fam-collision"></span>near_miss</td><td>Constant-velocity prediction says two reliably tracked road users will meet within 2 s; one brakes hard (sustained ≥ 40 % speed drop) or swerves ≥ 35° and back (a turn is not a swerve); they never touch. Same-direction pairs only count at very close range.</td><td>onset of braking/swerve → apart again</td></tr>
+      <tr><td><span class="swatch fam-signal"></span>red_light</td><td>A vehicle's front crosses a stop line at speed while that approach is red: the traffic light in view is red, or at least two other vehicles wait at the line before and after. A steady stream of crossings means green.</td><td>front crosses line → leaves intersection/frame</td></tr>
+      <tr><td><span class="swatch fam-signal"></span>stop_line</td><td>A vehicle stops with its front 0.3–2.5 sizes past the stop line during a red phase.</td><td>stops → queue moves (green)</td></tr>
+      <tr><td><span class="swatch fam-signal"></span>solid_line_crossing</td><td>Both bottom corners of the box pass from one side of a drawn solid line to the other.</td><td>first corner crosses → both across</td></tr>
+      <tr><td><span class="swatch fam-manoeuvre"></span>wrong_way</td><td>Moving at speed for ≥ 3 s against the learned lane direction (≥ 125° off), over at least 4 sizes of travel, on a reliable track.</td><td>enters against the flow → back or out of frame</td></tr>
+      <tr><td><span class="swatch fam-manoeuvre"></span>illegal_u_turn</td><td>Heading turns ≥ 150° in one sense within 20 s on the carriageway, on a reliable track (not tiny, not cut off by the frame, no identity jump), outside zones drawn as U-turn allowed.</td><td>starts turning → heading stable</td></tr>
+      <tr><td><span class="swatch fam-manoeuvre"></span>illegal_turn</td><td>A 45–140° turn that matches a drawn prohibited movement (from-zone → to-zone). Legality depends on signs the camera cannot read, so without drawn rules no turn is flagged.</td><td>starts turning → completes</td></tr>
+      <tr><td><span class="swatch fam-pedestrian"></span>jaywalking</td><td>A pedestrian's feet on the carriageway (and well inside it for a while), more than two body widths from any crosswalk, ≥ 1.2 s.</td><td>steps onto road → leaves it</td></tr>
+      <tr><td><span class="swatch fam-pedestrian"></span>failure_to_yield</td><td>A vehicle drives through a crossing without slowing while a pedestrian walks across its path, just ahead of or beside it (within about a lane).</td><td>enters crossing → leaves it</td></tr>
+      <tr><td><span class="swatch fam-state"></span>stopped_vehicle</td><td>Stationary ≥ 10 s on the carriageway, nobody stationary right ahead, not in congestion, not at a stop line (there it must wait longer than any red phase), not where vehicles routinely park.</td><td>stops → moves again or removed</td></tr>
+      <tr><td><span class="swatch fam-state"></span>congestion</td><td>In one traffic stream (all lanes of a direction), at least half the usual peak number of vehicles, ≥ 80 % of them crawling, for ≥ 40 s.</td><td>queue stops → queue clears</td></tr>
+      <tr><td><span class="swatch fam-state"></span>road_obstacle</td><td>An animal on the carriageway. (Regions that differ from the background with no detection on them are available but off: at this junction they were queued cars the detector missed.)</td><td>appears → removed</td></tr>
+      <tr><td><span class="swatch fam-state"></span>fire_smoke</td><td>Very bright orange-red pixels that are not in the background, not on a moving vehicle and flicker; or growing grey textureless regions near the road.</td><td>first visible → gone or end of video</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>Part B — accident anticipation</h2>
+  <p class="section-intro"><code>RiskEstimator.step</code> receives frames one by one and never opens the video or reads
+    Part A output. Every k-th frame (6 per second on GPU, 3 on CPU) goes through the detector and its own online tracker.
+    Four cues are computed from the current tracks only and fused as 1 − ∏(1 − cue):</p>
+  <div class="grid grid-2">
+    <div class="card"><h3>Conflict</h3><p class="muted">For closing pairs, time and distance of closest approach under constant velocity.
+      Only head-on geometry counts (predicted miss distance ≤ half a size; passing in the next lane does not). Risk ≈ 0.5 at 1.2 s, rising as contact nears. Far-road boxes and ordinary same-lane following are ignored.</p></div>
+    <div class="card"><h3>Hard braking</h3><p class="muted">A vehicle losing half its speed within a second with another road user just ahead of it; capped so braking alone never raises an alarm.</p></div>
+    <div class="card"><h3>Wrong way</h3><p class="muted">A vehicle against the learned lane direction for ≥ 3 s (only when the first frame registers to the reference view).</p></div>
+    <div class="card"><h3>Impact</h3><p class="muted">Boxes touching while one party stops abruptly: the crash itself, which keeps the alarm from flickering.</p></div>
+  </div>
+  <p class="section-intro" style="margin-top:12px">An alarm (score ≥ 0.5) needs the fused cues above 0.5 on two consecutive analysed
+    frames; a one-frame spike keeps its rank (0.49) for average precision but raises no alarm. Once raised, the score is
+    held for 1.5 s before decaying, so one near collision gives one alarm rather than a burst.</p>
+
+  <h2>Engineering</h2>
+  <div class="grid grid-2">
+    <div class="card"><h3>Time budget</h3><p class="muted">The limit is 3× the video length for Part A and Part B together;
+      over it, the harness scores the video as empty. Decoding the camera's 4K 10-bit video is the main cost, so Part A skips
+      non-reference frames and scales in a background thread while the GPU detects 8 fps; Part B detects 6 fps. Both parts pace
+      themselves against one per-video clock and lower their rate if they fall behind. Measured with the unchanged harness on a
+      4K sample, 4 CPU cores and no GPU: 2.09× real time (Part A 0.83×, Part B 1.26×).</p></div>
+    <div class="card"><h3>Determinism</h3><p class="muted">Fixed seeds, cuDNN deterministic mode, deterministic frame selection
+      (by timestamp, not wall clock) and a deterministic tracker. Two runs give the same predictions.json.</p></div>
+    <div class="card"><h3>Caching</h3><p class="muted">Detections and tracks can be cached per video (<code>ROADWATCH_CACHE</code>),
+      so re-scoring after a rule change takes seconds. The official run does not use a cache.</p></div>
+    <div class="card"><h3>Offline</h3><p class="muted">Weights ship in <code>weights/</code> (YOLO11-m 40 MB, YOLO11-n 5.6 MB, plus
+      the scene model). Ultralytics is forced offline; nothing is downloaded at run time.</p></div>
+  </div>
+
+  <h2>Models and data</h2>
+  <div class="card table-wrap">
+  <table>
+    <thead><tr><th>What</th><th>Used for</th><th>Licence</th></tr></thead>
+    <tbody>
+      <tr><td>YOLO11-m / YOLO11-n (Ultralytics), pretrained on COCO</td><td>road-user and traffic-light detection, not fine-tuned</td><td>AGPL-3.0 (code and weights); COCO annotations CC BY 4.0</td></tr>
+      <tr><td>Organisers' sample videos</td><td>unsupervised scene calibration, EDA, our own dev labels</td><td>competition use</td></tr>
+      <tr><td>Public road clips (Intel IoT sample videos; tensorflow_object_counting_api samples)</td><td>local smoke tests only, not shipped</td><td>CC BY 4.0; MIT</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="section-intro" style="margin-top:12px">Nothing is trained on accident datasets: every rule threshold is set by
+    hand from the definitions and checked against our labels of the sample videos. Source: <a href="https://github.com/retired-snowfall/some_shi">repository</a>.</p>
+</main>
+<script type="module">import { chrome } from "./js/common.js"; chrome();</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+# Inference (what run_submission.py needs). torch from PyPI ships CUDA 12.8 wheels (T4 / sm_75 supported);
+# without a usable GPU the pipeline falls back to its CPU profile automatically.
+numpy>=1.24,<3
+opencv-python-headless>=4.8
+scipy>=1.10
+torch==2.8.0
+torchvision==0.23.0
+ultralytics==8.3.253
+# fast video decoding (skips non-reference frames, scales in C); OpenCV is the fallback
+av==15.1.0
+# rendering annotated videos / website demo (bundled static ffmpeg)
+imageio-ffmpeg>=0.5

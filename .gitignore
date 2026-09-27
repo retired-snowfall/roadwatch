@@ -1,0 +1,17 @@
+# data (large; see README "Getting the sample videos")
+/samples/
+/data/
+*.mp4
+*.avi
+*.mov
+# caches and outputs
+.cache/
+outputs/
+__pycache__/
+*.pyc
+.pytest_cache/
+runs/
+*.egg-info/
+.venv/
+# generated site media (built by tools/build_site.py): committed, the website deploys from the repository
+!web/static/data/samples/*/*.mp4

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Operator dashboard</title>
+  <meta name="description" content="Events by class, by video and over time, as a traffic-centre operator would see them.">
+  <link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<main>
+  <h1>Operator dashboard</h1>
+  <p class="lead">All sample videos as one feed, the way a city traffic centre would watch this camera:
+    what happened, how often, and where to look first.</p>
+  <div class="grid grid-4" id="tiles"></div>
+  <div class="grid grid-2" style="margin-top:16px">
+    <section class="card"><h3>Events by class</h3><div class="legend" id="fam-legend"></div><div id="by-class"></div></section>
+    <section class="card"><h3>Event rate</h3>
+      <p class="small muted">Events per hour of video, per class family.</p><div id="rate"></div></section>
+  </div>
+  <section class="card" style="margin-top:16px">
+    <h3>Event feed</h3>
+    <p class="small muted">Newest last within each video; click a row to open it in the player.</p>
+    <div class="table-wrap" id="feed"></div>
+  </section>
+</main>
+<script type="module" src="js/dashboard.js"></script>
+</body>
+</html>

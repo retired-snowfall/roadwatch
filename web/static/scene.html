@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scene editor</title>
+<meta name="description" content="Draw crosswalks, stop lines, solid lines and no-turn rules for the fixed camera and export weights/zones.json.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="css/site.css">
+<style>
+  [hidden] { display: none !important; }
+  .crumb { margin: 0 0 6px; }
+  .scene { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) 320px; align-items: start; }
+  @media (max-width: 920px) { .scene { grid-template-columns: minmax(0, 1fr); } }
+  .scene + details { margin-top: 16px; }
+  .card h3 { font-size: 1rem; margin: 0 0 0.5em; }
+  .card h3 + .row { margin-top: 0; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .btn.sm { padding: 5px 11px; font-size: 0.88rem; }
+  .check { display: inline-flex; gap: 6px; align-items: center; font-size: 0.9rem; color: var(--ink-2); }
+  input[type="text"] {
+    font: inherit; font-size: 0.9rem; color: var(--ink); background: var(--surface);
+    border: 1px solid var(--axis); border-radius: 6px; padding: 4px 7px; min-width: 0;
+  }
+  input[type="range"] { flex: 1 1 160px; min-width: 0; accent-color: var(--accent); }
+  input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .zones-h { margin-top: 16px !important; padding-top: 12px; border-top: 1px solid var(--grid); }
+  #grab { margin-top: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
+  #grab video { max-height: 220px; border-radius: 6px; background: var(--page); margin-bottom: 8px; }
+  #bgMsg { margin-top: 10px; padding: 12px; }
+  #bgNote { margin: 8px 0 0; }
+  .tools { margin: 0 0 8px; }
+  .tools button[aria-pressed="true"] .ksw { outline: 1.5px solid var(--page); }
+  .tools button { display: inline-flex; align-items: center; }
+  .tools button[aria-pressed="true"] { background: var(--ink); color: var(--page); border-color: var(--ink); }
+  .tool-opts .btn:disabled { opacity: 0.45; }
+  .nt { display: flex; gap: 8px; align-items: center; margin-top: 8px; font-size: 0.9rem; color: var(--ink-2); max-width: 420px; }
+  .nt input { flex: 1 1 auto; }
+  #hint { margin: 8px 0; min-height: 1.5em; }
+  #stage { position: relative; width: 100%; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+  #cv { display: block; width: 100%; touch-action: none; cursor: crosshair; }
+  #cv.select { cursor: default; }
+  #cv:focus { outline: none; }
+  #cv:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  /* kind swatches (always next to a text label) */
+  .ksw { display: inline-block; width: 14px; height: 10px; border-radius: 3px; margin-right: 6px; flex: none; vertical-align: 0; border: 2px solid; }
+  .ksw.line { height: 4px; border: 0; border-radius: 2px; vertical-align: 2px; }
+  .k-crosswalks { border-color: var(--ink); background: color-mix(in srgb, var(--ink) 25%, transparent); }
+  .k-intersection { border-color: var(--axis); background: color-mix(in srgb, var(--axis) 30%, transparent); }
+  .k-u_turn_allowed { border-color: var(--fam-manoeuvre); background: color-mix(in srgb, var(--fam-manoeuvre) 25%, transparent); }
+  .k-no_stopping { border-color: var(--fam-state); background: color-mix(in srgb, var(--fam-state) 25%, transparent); }
+  .k-ignore { border-color: var(--muted); background: color-mix(in srgb, var(--muted) 30%, transparent); }
+  .k-solid_lines { background: var(--fam-pedestrian); }
+  .k-stop_lines { background: var(--critical); }
+  .k-no_turn_from { border-color: var(--fam-signal); background: color-mix(in srgb, var(--fam-signal) 25%, transparent); }
+  .k-no_turn_to { border-color: var(--fam-collision); background: color-mix(in srgb, var(--fam-collision) 25%, transparent); }
+  .legend .item { display: inline-flex; align-items: center; }
+
+  /* side list */
+  .kgroup { border-top: 1px solid var(--grid); padding: 8px 0; }
+  .kgroup:first-child { border-top: 0; padding-top: 0; }
+  .khead { display: flex; align-items: center; gap: 2px; font-weight: 600; font-size: 0.92rem; }
+  .khead .pill { margin-left: auto; }
+  .krow { display: flex; align-items: center; gap: 6px; padding: 4px 6px; margin-top: 4px; border-radius: 6px; font-size: 0.88rem; flex-wrap: wrap; }
+  .krow.sel { background: var(--wash); box-shadow: inset 0 0 0 1px var(--accent); }
+  .krow .kname { flex: 1 1 auto; min-width: 0; text-align: left; font: inherit; background: none; border: 0; color: var(--ink); cursor: pointer; padding: 2px 0; }
+  .krow .kname .muted { margin-left: 4px; }
+  .krow input[type="text"] { flex: 1 1 140px; font-size: 0.84rem; padding: 2px 6px; }
+  .mini {
+    font: inherit; font-size: 0.8rem; padding: 2px 7px; border-radius: 6px; cursor: pointer; white-space: nowrap;
+    border: 1px solid var(--border); background: var(--surface); color: var(--ink-2);
+  }
+  .mini:hover { color: var(--ink); background: var(--surface-2); }
+  .none { font-size: 0.82rem; color: var(--muted); margin-top: 2px; }
+  .save { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--grid); }
+  .save p { margin: 8px 0 0; }
+  #msg { min-height: 1.4em; }
+  #msg.bad { color: var(--critical); }
+  details.card > summary { cursor: pointer; font-weight: 600; }
+  details.card[open] > summary { margin-bottom: 10px; }
+  #preview { max-height: 360px; overflow: auto; margin: 0; }
+</style>
+</head>
+<body>
+<main>
+  <p class="crumb small"><a href="tools.html">← Tools</a></p>
+  <h1>Scene editor</h1>
+  <p class="lead">The camera never moves, so the road layout is drawn once: crosswalks, the intersection box, stop lines, solid lines and prohibited turns. The pipeline reads it as <code>weights/zones.json</code>.</p>
+
+  <div class="scene">
+    <section class="card" aria-label="Drawing">
+      <div id="tools" class="tabs tools" role="toolbar" aria-label="Drawing tools"></div>
+      <div class="row tool-opts">
+        <button id="finish" class="btn sm" type="button" disabled>Finish <kbd>Enter</kbd></button>
+        <button id="cancel" class="btn sm" type="button" disabled>Cancel <kbd>Esc</kbd></button>
+        <button id="flip" class="btn sm" type="button" disabled>Flip direction</button>
+        <button id="del" class="btn sm" type="button" disabled>Delete selected</button>
+      </div>
+      <label id="ntWrap" class="nt" hidden>Rule name <input id="ntName" type="text" placeholder="e.g. left from lane 1"></label>
+      <p id="hint" class="small muted" aria-live="polite"></p>
+      <div id="stage"><canvas id="cv" tabindex="0" aria-label="Scene drawing canvas"></canvas></div>
+      <div id="legend" class="legend" role="list" aria-label="Legend"></div>
+    </section>
+
+    <aside class="card" aria-label="Background and zones">
+      <h3>Background</h3>
+      <div class="row">
+        <button id="openImg" class="btn sm" type="button">Open image</button>
+        <input id="imgFile" type="file" accept="image/*" hidden>
+        <button id="openVid" class="btn sm" type="button">Grab frame from video</button>
+        <input id="vidFile" type="file" accept="video/*,.mp4" hidden>
+      </div>
+      <label class="check" style="margin-top:8px"><input id="dirs" type="checkbox"> Show learned lane directions</label>
+      <div id="grab" hidden>
+        <video id="gv" muted playsinline preload="auto"></video>
+        <div class="row">
+          <input id="gs" type="range" min="0" max="1" step="0.04" value="0" aria-label="Frame time">
+          <span id="gt" class="num small">0:00.0</span>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button id="useFrame" class="btn primary sm" type="button">Use this frame</button>
+          <button id="closeGrab" class="btn sm" type="button">Cancel</button>
+        </div>
+      </div>
+      <div id="bgMsg" class="empty small" hidden>No background image at <code>data/scene/background.jpg</code>. Open an image or grab a frame from a sample video; you can also draw on the blank canvas.</div>
+      <p id="bgNote" class="small muted"></p>
+
+      <h3 class="zones-h">Zones</h3>
+      <div id="list"></div>
+      <div class="save">
+        <h3>Save</h3>
+        <div class="row">
+          <button id="export" class="btn primary sm" type="button">Download zones.json</button>
+          <button id="copy" class="btn sm" type="button">Copy</button>
+          <button id="import" class="btn sm" type="button">Import zones.json</button>
+          <input id="zonesFile" type="file" accept=".json,application/json" hidden>
+          <button id="clear" class="btn sm" type="button">Clear all</button>
+        </div>
+        <p id="msg" class="small" aria-live="polite"></p>
+        <p class="small callout">Save as <code>weights/zones.json</code> in the repository; the pipeline (<code>src/roadwatch/scene.py</code>) reads it next to <code>weights/scene.json</code>.</p>
+        <p class="small muted">Coordinates are normalised to [0, 1] of the image width and height (x right, y down). A stop line’s <code>dir</code> is the travel direction of approaching traffic in degrees, <code>atan2(dy, dx)</code> with y down. Work is autosaved in this browser; the background image is not.</p>
+      </div>
+    </aside>
+  </div>
+
+  <details class="card">
+    <summary>zones.json preview</summary>
+    <pre id="preview" class="small"></pre>
+  </details>
+</main>
+<script type="module" src="js/scene.js"></script>
+</body>
+</html>

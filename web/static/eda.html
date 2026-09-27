@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sample video EDA</title>
+  <meta name="description" content="Exploratory analysis of the sample videos: format, lighting, traffic over time, motion heatmaps, trajectories and lane directions.">
+  <link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<main>
+  <h1>Exploratory analysis of the sample videos</h1>
+  <p class="lead">What the camera sees, measured with our own detector and tracker: format and lighting, how many
+    road users appear over time, where they move and stop, and the lane directions learned from the trajectories.</p>
+
+  <h2>Findings that shaped the solution</h2>
+  <div class="grid grid-2" id="findings"></div>
+
+  <h2>The videos</h2>
+  <div class="card table-wrap" id="summary"><div class="empty">Loading…</div></div>
+
+  <h2>Per video</h2>
+  <div class="tabs" role="tablist" id="tabs"></div>
+  <div class="grid grid-2">
+    <section class="card"><h3>Road users over time</h3>
+      <p class="small muted">Distinct tracked objects per 10-second window.</p>
+      <div class="legend" id="counts-legend"></div><div id="counts"></div></section>
+    <section class="card"><h3>Lighting</h3>
+      <p class="small muted">Mean frame brightness (0–255), sampled once per second.</p><div id="light"></div></section>
+    <section class="card"><h3>Vehicle speed distribution</h3>
+      <p class="small muted">Moving vehicles, in object sizes per second (perspective-normalised).</p><div id="speed"></div></section>
+    <section class="card"><h3>At a glance</h3><div id="glance"></div></section>
+  </div>
+  <div class="grid grid-2" id="pictures" style="margin-top:16px"></div>
+
+  <h2>Scene calibration (all samples)</h2>
+  <p class="section-intro">The lane-direction field and stop lines learned from every trajectory in the samples.
+    The pipeline uses it to decide what "against the traffic" means, where the carriageway is and where queues form.</p>
+  <div id="scene"></div>
+</main>
+<script type="module" src="js/eda.js"></script>
+</body>
+</html>

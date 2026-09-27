@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Video annotator</title>
+<meta name="description" content="Label local sample videos in the browser and export ground truth in the official format.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="css/site.css">
+<style>
+  [hidden] { display: none !important; }
+  .crumb { margin: 0 0 6px; }
+  .anno { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) 340px; align-items: start; }
+  @media (max-width: 920px) { .anno { grid-template-columns: minmax(0, 1fr); } }
+  .anno + .card, .card + .card, .card + details { margin-top: 16px; }
+  .card h2 { font-size: 1.2rem; margin: 0 0 0.6em; }
+  .card h3 { font-size: 1rem; margin: 0 0 0.5em; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .samples { margin-top: 10px; flex-direction: column; align-items: flex-start; gap: 6px; }
+  .btn.sm { padding: 5px 11px; font-size: 0.88rem; }
+  .btn kbd { font-weight: 400; }
+  input[type="number"], input[type="text"] {
+    font: inherit; font-size: 0.9rem; color: var(--ink); background: var(--surface);
+    border: 1px solid var(--axis); border-radius: 6px; padding: 4px 6px; min-width: 0;
+  }
+  input[type="number"]:focus-visible, input[type="text"]:focus-visible, button:focus-visible, .dropzone:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 1px;
+  }
+
+  /* video + picker */
+  .dropzone { padding: 18px 14px; }
+  .dropzone.compact { padding: 9px 12px; }
+  .dropzone p { margin: 0; }
+  .vid-tabs { margin: 12px 0 8px; }
+  .vid-tabs button { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .vid-tabs .pill { margin-left: 6px; }
+  .player { margin-top: 8px; }
+  .player video { max-height: 62vh; margin: 0 auto; }
+  .player-controls { margin-top: 10px; }
+  .player-controls label { cursor: default; }
+  .player-controls input[type="number"] { width: 5em; }
+  .clock { font-family: var(--mono); font-size: 0.88rem; color: var(--ink); }
+
+  /* timeline */
+  #timeline { margin-top: 14px; user-select: none; -webkit-user-select: none; }
+  #timeline svg { cursor: pointer; touch-action: pan-y; }
+  .tl-label { fill: var(--ink); font-size: 12px; }
+  .tl-sub { fill: var(--muted); font-size: 10px; }
+  .tl-empty { fill: var(--muted); font-size: 12px; }
+  .tl-hint { margin: 4px 0 0; }
+
+  /* class picker */
+  .cls-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(138px, 1fr)); gap: 6px; }
+  .cls {
+    display: flex; align-items: center; gap: 2px; text-align: left; min-width: 0;
+    font: inherit; font-size: 0.84rem; line-height: 1.25; padding: 6px 8px; cursor: pointer;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--ink);
+  }
+  .cls:hover { background: var(--surface-2); }
+  .cls[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); background: var(--surface-2); font-weight: 600; }
+  .cls kbd { flex: none; margin-right: 4px; }
+  .cls .swatch { flex: none; margin-right: 5px; }
+  .cls .cls-text { min-width: 0; }
+  .cls .pend { display: block; font-size: 0.74rem; font-weight: 600; color: var(--accent-ink); }
+  .mark { margin-top: 12px; }
+  .mark .btn { flex: 1 1 120px; justify-content: center; }
+  #status { min-height: 1.5em; margin: 8px 0 0; }
+  #status.bad { color: var(--critical); }
+  .keys { margin-top: 10px; }
+  .keys table { font-size: 0.84rem; }
+  .keys td { padding: 3px 6px; }
+
+  /* segments */
+  .warn {
+    display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin: 0 0 8px;
+    border-left: 3px solid var(--warning); background: var(--surface-2); border-radius: 0 8px 8px 0;
+    padding: 8px 12px; font-size: 0.9rem;
+  }
+  .warn span { flex: 1 1 260px; }
+  #segs td { vertical-align: middle; }
+  .tcell { display: flex; gap: 4px; align-items: center; }
+  .tcell input { width: 6.2em; }
+  .mini {
+    font: inherit; font-size: 0.8rem; padding: 3px 7px; border-radius: 6px; cursor: pointer; white-space: nowrap;
+    border: 1px solid var(--border); background: var(--surface); color: var(--ink-2);
+  }
+  .mini:hover { color: var(--ink); background: var(--surface-2); }
+  .iss { color: var(--critical); font-size: 0.82rem; }
+  .ok { color: var(--muted); font-size: 0.82rem; }
+  @media (max-width: 640px) {
+    #segs thead { display: none; }
+    #segs tr { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; padding: 8px 0; border-bottom: 1px solid var(--grid); }
+    #segs td { border: 0; padding: 2px 0; }
+    #segs td[data-k]::before { content: attr(data-k); display: block; font-size: 0.72rem; color: var(--muted); }
+    #segs td.c-class, #segs td.c-iss, #segs td[colspan] { grid-column: 1 / -1; }
+    #segs td.num { text-align: left; }
+  }
+
+  /* io + conventions */
+  .io { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .io p { margin: 8px 0 0; }
+  details.card > summary { cursor: pointer; font-weight: 600; }
+  details.card[open] > summary { margin-bottom: 10px; }
+  .conv td:first-child { font-family: var(--mono); font-size: 0.85rem; white-space: nowrap; }
+</style>
+</head>
+<body>
+<main>
+  <p class="crumb small"><a href="tools.html">← Tools</a></p>
+  <h1>Video annotator</h1>
+  <p class="lead">Label the sample videos to build a dev set in the official ground-truth format. Videos play from your disk and are never uploaded; labels are saved in this browser as you work.</p>
+
+  <div class="anno">
+    <section class="card" aria-label="Video">
+      <div id="drop" class="dropzone" tabindex="0">
+        <p><strong>Drop .mp4 files here</strong> or click to choose. You can open several; labels are kept per file name.</p>
+        <input id="file" type="file" accept="video/*,.mp4" multiple hidden>
+      </div>
+      <div id="samples" class="row samples" hidden>
+        <span class="small muted">Or open a sample video hosted on this site (a browser-friendly copy, with our pipeline's events loaded as predictions):</span>
+        <div id="sampleBtns" class="row"></div>
+      </div>
+      <div id="picker" class="tabs vid-tabs" role="tablist" aria-label="Videos opened this session" hidden></div>
+      <p id="stored" class="small muted" hidden></p>
+      <div id="noVideo" class="empty" style="margin-top:12px">Open a video to start labelling.</div>
+      <div id="player" class="player" hidden><video id="video" playsinline preload="auto"></video></div>
+      <div id="controls" class="player-controls" hidden>
+        <button id="play" class="btn sm" type="button">Play <kbd>Space</kbd></button>
+        <span class="clock num" id="clock">0:00.0</span>
+        <button id="rate" class="btn sm" type="button" title="Playback rate ([ and ])">1×</button>
+        <label>fps <input id="fps" type="number" min="1" max="240" step="any" value="25"></label>
+        <span>duration <output id="dur" class="num">–</output></span>
+      </div>
+      <div id="timeline" class="chart" hidden></div>
+      <p id="tlHint" class="tl-hint small muted" hidden>Click or drag on the timeline to seek. Faded bars are loaded predictions.</p>
+    </section>
+
+    <aside class="card" aria-label="Class and marking">
+      <h3>Class</h3>
+      <div id="classes" class="cls-grid"></div>
+      <div class="row mark">
+        <button id="btnStart" class="btn" type="button">Set start <kbd>S</kbd></button>
+        <button id="btnEnd" class="btn primary" type="button">Set end <kbd>E</kbd></button>
+      </div>
+      <p id="status" class="small muted" aria-live="polite"></p>
+      <details class="keys small">
+        <summary>Keyboard shortcuts</summary>
+        <table>
+          <tr><td><kbd>1</kbd>–<kbd>0</kbd>, <kbd>Q</kbd> <kbd>W</kbd> <kbd>R</kbd> <kbd>T</kbd></td><td>select class</td></tr>
+          <tr><td><kbd>S</kbd></td><td>set start at the current time</td></tr>
+          <tr><td><kbd>E</kbd></td><td>set end and add the segment (no start: now − 2 s)</td></tr>
+          <tr><td><kbd>Space</kbd></td><td>play / pause</td></tr>
+          <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>one frame back / forward</td></tr>
+          <tr><td><kbd>Shift</kbd>+<kbd>←</kbd> <kbd>→</kbd></td><td>one second</td></tr>
+          <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>playback rate 0.5× / 1× / 2×</td></tr>
+        </table>
+        <p class="muted" style="margin:6px 0 0">Shortcuts are off while typing in a field. <kbd>E</kbd> is taken by “set end”, so the last two classes use <kbd>R</kbd> and <kbd>T</kbd>.</p>
+      </details>
+    </aside>
+  </div>
+
+  <section class="card" aria-labelledby="segTitle">
+    <h2 id="segTitle">Segments <span id="segCount" class="pill"></span></h2>
+    <div id="warnings"></div>
+    <div class="table-wrap">
+      <table id="segs">
+        <thead><tr><th>Class</th><th>Start (s)</th><th>End (s)</th><th class="num">Duration</th><th>Check</th><th><span class="muted small">Delete</span></th></tr></thead>
+        <tbody id="segBody"></tbody>
+      </table>
+    </div>
+    <p class="small muted" style="margin:8px 0 0">Click a row to jump to its start. Edit times directly or use “⟲ now” to take the current video time.</p>
+  </section>
+
+  <section class="card" aria-labelledby="ioTitle">
+    <h2 id="ioTitle">Import and export</h2>
+    <div class="io">
+      <div>
+        <h3>Ground truth</h3>
+        <div class="row">
+          <button id="export" class="btn primary sm" type="button">Download JSON</button>
+          <button id="copy" class="btn sm" type="button">Copy JSON</button>
+          <button id="import" class="btn sm" type="button">Import JSON</button>
+          <input id="importFile" type="file" accept=".json,application/json" hidden>
+        </div>
+        <p class="small muted">Import merges into the current labels. Export covers every video in this browser, keyed by file name:</p>
+        <pre class="small">{"sample_001.mp4": {
+  "duration": 60.0, "fps": 25.0,
+  "events": [[5.0, 8.0, "red_light"],
+             [20.0, 26.0, "accident"]]}}</pre>
+        <div class="row"><button id="clearVideo" class="btn sm" type="button">Clear labels of this video</button></div>
+      </div>
+      <div>
+        <h3>Compare with predictions</h3>
+        <div class="row">
+          <button id="loadPred" class="btn sm" type="button">Load predictions</button>
+          <button id="adoptPred" class="btn sm" type="button" hidden>Use as starting labels</button>
+          <button id="clearPred" class="btn sm" type="button" hidden>Hide predictions</button>
+          <input id="predFile" type="file" accept=".json,application/json" hidden>
+        </div>
+        <p id="predInfo" class="small muted">A predictions JSON (<code>{"team": …, "videos": {name: {"events": [[s, e, label], …]}}}</code>) is shown as faded bars in a “pred” row under each class. Read-only.</p>
+      </div>
+    </div>
+  </section>
+
+  <details class="card">
+    <summary>Labelling conventions</summary>
+    <div class="table-wrap">
+      <table class="conv">
+        <thead><tr><th>Class</th><th>Start</th><th>End</th></tr></thead>
+        <tbody>
+          <tr><td>accident</td><td>first frame where contact is visible</td><td>all involved objects stop moving or leave the frame</td></tr>
+          <tr><td>near_miss</td><td>onset of the evasive action</td><td>road users are clear of each other</td></tr>
+          <tr><td>red_light</td><td>front of the vehicle crosses the stop line (signal red)</td><td>vehicle leaves the intersection or the frame</td></tr>
+          <tr><td>wrong_way</td><td>vehicle enters the opposing lane</td><td>returns to a correct lane or leaves the frame</td></tr>
+          <tr><td>illegal_u_turn</td><td>vehicle starts turning</td><td>completes the turn</td></tr>
+          <tr><td>stopped_vehicle</td><td>vehicle stops (stationary ≥ 10 s on the carriageway, not queued at a signal)</td><td>moves again or is removed</td></tr>
+          <tr><td>jaywalking</td><td>pedestrian steps onto the road outside a crossing</td><td>leaves the road</td></tr>
+          <tr><td>failure_to_yield</td><td>vehicle enters the crossing while a pedestrian is on it</td><td>leaves the crossing</td></tr>
+          <tr><td>illegal_turn</td><td>vehicle starts turning</td><td>completes the turn</td></tr>
+          <tr><td>solid_line_crossing</td><td>wheel crosses the solid line</td><td>vehicle fully in the new lane</td></tr>
+          <tr><td>stop_line</td><td>vehicle stops past the stop line on red</td><td>signal turns green</td></tr>
+          <tr><td>congestion</td><td>queue stops moving (standstill/crawl across all lanes of a direction)</td><td>queue clears</td></tr>
+          <tr><td>road_obstacle</td><td>obstacle appears</td><td>obstacle is removed</td></tr>
+          <tr><td>fire_smoke</td><td>first visible smoke</td><td>smoke clears or the frame ends</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin:10px 0 0">When an event runs past the end of the video, end = video duration. Two simultaneous events of the same class are one segment.</p>
+  </details>
+</main>
+<script type="module" src="js/annotate.js"></script>
+</body>
+</html>

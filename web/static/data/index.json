@@ -1,0 +1,461 @@
+{
+ "videos": [
+  {
+   "id": "C3896",
+   "video": "C3896.MP4",
+   "duration": 340.34,
+   "fps": 29.97002997002997,
+   "width": 1920,
+   "height": 1080,
+   "events": [
+    [
+     0.0,
+     340.34,
+     "stopped_vehicle"
+    ],
+    [
+     111.35,
+     113.35,
+     "solid_line_crossing"
+    ],
+    [
+     154.92,
+     158.83,
+     "failure_to_yield"
+    ],
+    [
+     236.04,
+     245.21,
+     "jaywalking"
+    ],
+    [
+     298.5,
+     328.0,
+     "stop_line"
+    ]
+   ],
+   "n_events": 5,
+   "lighting": "day",
+   "max_risk": 0.8684,
+   "timings": {
+    "perception_sec": 0.47,
+    "total_sec": 14.9,
+    "analysed_frames": 1702,
+    "device": "cpu",
+    "realtime_factor": 0.044
+   }
+  },
+  {
+   "id": "C3897",
+   "video": "C3897.MP4",
+   "duration": 317.817,
+   "fps": 29.97002997002997,
+   "width": 1920,
+   "height": 1080,
+   "events": [
+    [
+     0.0,
+     317.82,
+     "stopped_vehicle"
+    ],
+    [
+     1.0,
+     6.81,
+     "jaywalking"
+    ],
+    [
+     10.21,
+     17.62,
+     "jaywalking"
+    ],
+    [
+     51.85,
+     53.85,
+     "solid_line_crossing"
+    ],
+    [
+     78.21,
+     87.42,
+     "jaywalking"
+    ],
+    [
+     103.34,
+     105.44,
+     "failure_to_yield"
+    ],
+    [
+     134.2,
+     182.45,
+     "solid_line_crossing"
+    ],
+    [
+     145.61,
+     154.62,
+     "jaywalking"
+    ],
+    [
+     172.84,
+     174.24,
+     "jaywalking"
+    ],
+    [
+     234.2,
+     239.64,
+     "jaywalking"
+    ],
+    [
+     234.54,
+     241.44,
+     "failure_to_yield"
+    ],
+    [
+     291.62,
+     300.23,
+     "jaywalking"
+    ],
+    [
+     302.04,
+     313.05,
+     "jaywalking"
+    ]
+   ],
+   "n_events": 13,
+   "lighting": "day",
+   "max_risk": 0.5912,
+   "timings": {
+    "perception_sec": 0.14,
+    "total_sec": 13.37,
+    "analysed_frames": 1589,
+    "device": "cpu",
+    "realtime_factor": 0.042
+   }
+  },
+  {
+   "id": "C3902",
+   "video": "C3902.MP4",
+   "duration": 317.817,
+   "fps": 29.97002997002997,
+   "width": 1920,
+   "height": 1080,
+   "events": [
+    [
+     0.0,
+     317.82,
+     "stopped_vehicle"
+    ],
+    [
+     24.53,
+     26.63,
+     "failure_to_yield"
+    ],
+    [
+     45.75,
+     48.01,
+     "failure_to_yield"
+    ],
+    [
+     81.41,
+     102.63,
+     "jaywalking"
+    ],
+    [
+     106.04,
+     109.24,
+     "jaywalking"
+    ],
+    [
+     173.14,
+     175.44,
+     "failure_to_yield"
+    ],
+    [
+     174.44,
+     188.05,
+     "jaywalking"
+    ],
+    [
+     183.55,
+     185.65,
+     "failure_to_yield"
+    ],
+    [
+     221.62,
+     222.82,
+     "jaywalking"
+    ],
+    [
+     232.43,
+     243.21,
+     "jaywalking"
+    ],
+    [
+     257.22,
+     265.23,
+     "jaywalking"
+    ],
+    [
+     269.61,
+     275.61,
+     "jaywalking"
+    ],
+    [
+     282.02,
+     283.22,
+     "jaywalking"
+    ],
+    [
+     284.12,
+     287.02,
+     "failure_to_yield"
+    ]
+   ],
+   "n_events": 14,
+   "lighting": "dusk/overcast",
+   "max_risk": 0.49,
+   "timings": {
+    "perception_sec": 0.15,
+    "total_sec": 14.46,
+    "analysed_frames": 1589,
+    "device": "cpu",
+    "realtime_factor": 0.045
+   }
+  },
+  {
+   "id": "C3905",
+   "video": "C3905.MP4",
+   "duration": 127.627,
+   "fps": 29.97002997002997,
+   "width": 1920,
+   "height": 1080,
+   "events": [
+    [
+     0.0,
+     127.63,
+     "stopped_vehicle"
+    ],
+    [
+     9.61,
+     17.02,
+     "jaywalking"
+    ],
+    [
+     37.74,
+     40.01,
+     "failure_to_yield"
+    ],
+    [
+     71.61,
+     73.61,
+     "solid_line_crossing"
+    ],
+    [
+     77.5,
+     116.0,
+     "stop_line"
+    ],
+    [
+     99.73,
+     102.44,
+     "failure_to_yield"
+    ],
+    [
+     106.54,
+     108.84,
+     "failure_to_yield"
+    ],
+    [
+     108.05,
+     115.25,
+     "jaywalking"
+    ],
+    [
+     120.65,
+     122.65,
+     "solid_line_crossing"
+    ]
+   ],
+   "n_events": 9,
+   "lighting": "dusk/overcast",
+   "max_risk": 0.49,
+   "timings": {
+    "perception_sec": 0.11,
+    "total_sec": 6.29,
+    "analysed_frames": 638,
+    "device": "cpu",
+    "realtime_factor": 0.049
+   }
+  }
+ ],
+ "scene": {
+  "videos": 4,
+  "seconds": 1103.6025,
+  "stop_lines": 1,
+  "zones": {
+   "crosswalks": [
+    [
+     [
+      0.1693,
+      0.5463
+     ],
+     [
+      0.6146,
+      0.4741
+     ],
+     [
+      0.6224,
+      0.5241
+     ],
+     [
+      0.1745,
+      0.613
+     ]
+    ],
+    [
+     [
+      0.625,
+      0.4741
+     ],
+     [
+      0.9974,
+      0.4407
+     ],
+     [
+      0.9974,
+      0.4852
+     ],
+     [
+      0.6276,
+      0.5241
+     ]
+    ],
+    [
+     [
+      0.1224,
+      0.6556
+     ],
+     [
+      0.1833,
+      0.6574
+     ],
+     [
+      0.4714,
+      1.0
+     ],
+     [
+      0.2734,
+      1.0
+     ],
+     [
+      0.0833,
+      0.7056
+     ]
+    ]
+   ],
+   "stop_lines": [
+    {
+     "points": [
+      [
+       0.1419,
+       0.5003
+      ],
+      [
+       0.4895,
+       0.423
+      ]
+     ],
+     "dir": 82.9
+    }
+   ],
+   "solid_lines": [
+    [
+     [
+      0.1407,
+      0.3266
+     ],
+     [
+      0.2854,
+      0.4577
+     ]
+    ],
+    [
+     [
+      0.3567,
+      0.4519
+     ],
+     [
+      0.2093,
+      0.3262
+     ]
+    ],
+    [
+     [
+      0.2363,
+      0.2893
+     ],
+     [
+      0.4162,
+      0.4293
+     ]
+    ],
+    [
+     [
+      0.2212,
+      0.4889
+     ],
+     [
+      0.0758,
+      0.3164
+     ]
+    ]
+   ],
+   "intersection": [],
+   "u_turn_allowed": [
+    [
+     [
+      0.0,
+      0.0
+     ],
+     [
+      1.0,
+      0.0
+     ],
+     [
+      1.0,
+      1.0
+     ],
+     [
+      0.0,
+      1.0
+     ]
+    ]
+   ],
+   "no_turn": [],
+   "no_stopping": [
+    [
+     [
+      0.0,
+      0.333
+     ],
+     [
+      0.052,
+      0.333
+     ],
+     [
+      0.13,
+      0.444
+     ],
+     [
+      0.13,
+      0.5
+     ],
+     [
+      0.0,
+      0.5
+     ]
+    ]
+   ],
+   "ignore": [],
+   "lights": []
+  }
+ }
+}
